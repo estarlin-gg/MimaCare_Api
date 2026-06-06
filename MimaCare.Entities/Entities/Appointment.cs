@@ -23,7 +23,6 @@ namespace MimaCare.Domain.Entities
 
         public Doctor Doctor { get; set; }
             
-
         public DateOnly AppointmentDate { get; set; }
 
         public TimeOnly? StartTime { get; set; }

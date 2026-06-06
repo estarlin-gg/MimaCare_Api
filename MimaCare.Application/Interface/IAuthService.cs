@@ -1,6 +1,6 @@
 ﻿using MimaCare.Application.Dtos.Auth;
 
-namespace MimaCare.Application.Services.Abstraction
+namespace MimaCare.Application.Interface
 {
     public interface IAuthService
     {

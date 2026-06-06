@@ -9,7 +9,7 @@
         public Patient Patient { get; set; }
             = default!;
 
-        public string UploadedByUserId { get; set; }
+        public Guid UploadedByUserId { get; set; }
             = default!;
 
         public ApplicationUser UploadedByUser { get; set; }

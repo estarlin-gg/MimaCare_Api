@@ -1,57 +1,107 @@
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using Mapster;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using MimaCare.Application.Interface;
 using MimaCare.Application.Mappers;
-using MimaCare.Application.Services.Abstraction;
-using MimaCare.Application.Services.Implementation;
+using MimaCare.Application.Services;
 using MimaCare.Application.Validators.Clinic;
 using MimaCare.Domain.Entities;
 using MimaCare.Infrastructure.Context;
+using MimaCare.Infrastructure.Repositories;
+using MimaCare.Infrastructure.Repositories.Abstraction;
 using MimaCare.Infrastructure.Seed;
 using Scalar.AspNetCore;
+using System.Security.Claims;
 using System.Text;
-
+using MimaCare.Presentation.Middlewares;
+using MimaCare.Domain.Interfaces;
+using MimaCare.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
 
-builder.Services.AddDbContext<MimaCareContext>(opt =>
+// DATABASE
+
+builder.Services.AddDbContext<MimaCareContext>(options =>
 {
-    opt.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"));
+    //options.UseSqlite(
+    //    builder.Configuration.GetConnectionString(
+    //        "DefaultConnection"));
+
+    options.UseNpgsql(
+        builder.Configuration.GetConnectionString(
+            "DefaultConnection"));
 });
 
-builder.Services.AddIdentityCore<ApplicationUser>()
-    .AddRoles<IdentityRole>()
+
+// IDENTITY
+
+builder.Services
+    .AddIdentity<ApplicationUser, IdentityRole<Guid>>(options =>
+    {
+        options.Password.RequiredLength = 6;
+        options.Password.RequireUppercase = false;
+        options.Password.RequireLowercase = false;
+        options.Password.RequireDigit = false;
+        options.Password.RequireNonAlphanumeric = false;
+    })
     .AddEntityFrameworkStores<MimaCareContext>()
-    .AddSignInManager()
     .AddDefaultTokenProviders();
 
-builder.Services.AddAuthentication()
+
+// JWT
+
+builder.Services
+    .AddAuthentication(options =>
+    {
+        options.DefaultAuthenticateScheme =
+            JwtBearerDefaults.AuthenticationScheme;
+
+        options.DefaultChallengeScheme =
+            JwtBearerDefaults.AuthenticationScheme;
+
+        options.DefaultScheme =
+            JwtBearerDefaults.AuthenticationScheme;
+    })
     .AddJwtBearer(options =>
     {
-        options.MapInboundClaims = false;
         options.SaveToken = true;
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateAudience = false,
-            ValidateIssuer = false,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
 
-            IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!)
-            ),
-            ClockSkew = TimeSpan.Zero
-        };
+        options.TokenValidationParameters =
+            new TokenValidationParameters
+            {
+                ValidateIssuer = false,
+                ValidateAudience = false,
+                ValidateLifetime = true,
+                ValidateIssuerSigningKey = true,
+
+                IssuerSigningKey =
+                    new SymmetricSecurityKey(
+                        Encoding.UTF8.GetBytes(
+                            builder.Configuration["Jwt:Key"]!
+                        )
+                    ),
+
+                ClockSkew = TimeSpan.Zero,
+
+                RoleClaimType = ClaimTypes.Role
+            };
     });
+builder.Services.AddAuthorization();
+
+
+// MAPSTER
 
 TypeAdapterConfig.GlobalSettings.Scan(
     typeof(ClinicMapper).Assembly
 );
+
+
+// FLUENT VALIDATION
 
 builder.Services
     .AddFluentValidationAutoValidation();
@@ -60,40 +110,87 @@ builder.Services
     .AddValidatorsFromAssemblyContaining<
         RegisterClinicDtoValidator>();
 
+
+// SERVICES
+
 builder.Services.AddScoped<IAuthService, AuthService>();
 
+builder.Services.AddScoped<IDoctorService, DoctorService>();
+
+
+// REPOSITORIES
+
+builder.Services.AddScoped<IClinicRepository, ClinicRepository>();
+
+builder.Services.AddScoped<IDoctorRepository, DoctorRepository>();
+
+builder.Services.AddScoped<IPatientRepository,PatientRepository>();
+
+builder.Services.AddScoped<IAppointmentRepository, AppointmentRepository>();
+builder.Services.AddScoped<IAppointmentService, AppointmentService>();
+builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
+
+builder.Services.AddScoped(
+    typeof(IRepository<>),
+    typeof(Repository<>)
+);
+
+
+// HTTP CONTEXT
 
 builder.Services.AddHttpContextAccessor();
 
+
+// CONTROLLERS
+
 builder.Services.AddControllers();
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
+
+
+// OPEN API
+
 builder.Services.AddOpenApi();
+
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.MapOpenApi();
-    app.MapScalarApiReference();
 
-}
-
-app.UseHttpsRedirection();
-
-app.UseAuthentication();
-
-app.UseAuthorization();
-
-app.MapControllers();
+// SEED ROLES
 
 using (var scope = app.Services.CreateScope())
 {
     var roleManager =
         scope.ServiceProvider
-            .GetRequiredService<RoleManager<IdentityRole>>();
+            .GetRequiredService<
+                RoleManager<IdentityRole<Guid>>>();
 
     await RoleSeeder.SeedAsync(roleManager);
 }
+
+
+// DEVELOPMENT
+
+if (app.Environment.IsDevelopment())
+{
+    app.MapOpenApi();
+
+    app.MapScalarApiReference();
+}
+
+
+// MIDDLEWARE
+
+app.UseHttpsRedirection();
+
+app.UseExceptionMiddleware();
+
+app.UseAuthentication();
+
+app.UseAuthorization();
+
+
+// ENDPOINTS
+
+app.MapControllers();
 
 app.Run();

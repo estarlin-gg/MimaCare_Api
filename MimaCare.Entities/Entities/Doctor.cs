@@ -8,7 +8,7 @@ namespace MimaCare.Domain.Entities
     {
         public Guid Id { get; set; }
 
-        public string UserId { get; set; } = default!;
+        public Guid UserId { get; set; } = default!;
 
         public ApplicationUser User { get; set; }
             = default!;

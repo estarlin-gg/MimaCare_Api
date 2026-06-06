@@ -5,7 +5,7 @@ using MimaCare.Domain.Entities;
 
 namespace MimaCare.Infrastructure.Context
 {
-    public class MimaCareContext : IdentityDbContext<ApplicationUser, IdentityRole, string>
+    public class MimaCareContext : IdentityDbContext<ApplicationUser, IdentityRole<Guid>, Guid>
     {
         public MimaCareContext(DbContextOptions<MimaCareContext> options) : base(options)
         {

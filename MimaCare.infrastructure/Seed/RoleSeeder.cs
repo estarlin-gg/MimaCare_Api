@@ -1,8 +1,4 @@
 ﻿using Microsoft.AspNetCore.Identity;
-using System;
-using System.Collections.Generic;
-using System.Data;
-using System.Text;
 using MimaCare.Infrastructure.Constants;
 
 namespace MimaCare.Infrastructure.Seed
@@ -10,7 +6,7 @@ namespace MimaCare.Infrastructure.Seed
     public static class RoleSeeder
     {
         public static async Task SeedAsync(
-            RoleManager<IdentityRole> roleManager)
+            RoleManager<IdentityRole<Guid>> roleManager)
         {
             string[] roles =
             [
@@ -18,6 +14,11 @@ namespace MimaCare.Infrastructure.Seed
             Roles.Clinic,
             Roles.Doctor
             ];
+
+            if (roleManager.Roles.Any())
+            {
+                return;
+            }
 
             foreach (var role in roles)
             {
@@ -27,8 +28,10 @@ namespace MimaCare.Infrastructure.Seed
                 if (!exists)
                 {
                     await roleManager.CreateAsync(
-                        new IdentityRole(role)
-                    );
+                    new IdentityRole<Guid>
+                    {
+                        Name = role
+                    });
                 }
             }
         }

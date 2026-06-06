@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using MimaCare.Application.Dtos.Auth;
-using MimaCare.Application.Services.Abstraction;
+using MimaCare.Application.Interface;
 
 namespace MimaCare.Presentation.Controllers
 {
