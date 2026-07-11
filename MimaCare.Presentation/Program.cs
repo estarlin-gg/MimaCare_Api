@@ -17,6 +17,7 @@ using MimaCare.Infrastructure.Seed;
 using Scalar.AspNetCore;
 using System.Security.Claims;
 using System.Text;
+using Npgsql;
 using MimaCare.Presentation.Middlewares;
 using MimaCare.Domain.Interfaces;
 using MimaCare.Infrastructure.Persistence;
@@ -117,6 +118,14 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 
 builder.Services.AddScoped<IDoctorService, DoctorService>();
 
+builder.Services.AddScoped<IAppointmentService, AppointmentService>();
+
+builder.Services.AddScoped<IPatientService, PatientService>();
+
+builder.Services.AddScoped<IDoctorScheduleService, DoctorScheduleService>();
+
+builder.Services.AddScoped<IUserService, UserService>();
+
 
 // REPOSITORIES
 
@@ -127,8 +136,9 @@ builder.Services.AddScoped<IDoctorRepository, DoctorRepository>();
 builder.Services.AddScoped<IPatientRepository,PatientRepository>();
 
 builder.Services.AddScoped<IAppointmentRepository, AppointmentRepository>();
-builder.Services.AddScoped<IAppointmentService, AppointmentService>();
-builder.Services.AddScoped<IUserService, UserService>();
+
+builder.Services.AddScoped<IDoctorScheduleRepository, DoctorScheduleRepository>();
+
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
 builder.Services.AddScoped(
@@ -153,6 +163,28 @@ builder.Services.AddOpenApi();
 
 
 var app = builder.Build();
+
+
+// MIGRATE DATABASE
+
+using (var scope = app.Services.CreateScope())
+{
+    var context = scope.ServiceProvider
+        .GetRequiredService<MimaCareContext>();
+
+    try
+    {
+        await context.Database.MigrateAsync();
+    }
+    catch (PostgresException ex) when (ex.SqlState == "42P07")
+    {
+        // Tables already exist — mark InitialCreate as applied and retry
+        await context.Database.ExecuteSqlRawAsync(
+            "INSERT INTO \"__EFMigrationsHistory\" (\"MigrationId\", \"ProductVersion\") " +
+            "VALUES ('20260523164337_InitialCreate', '10.0.7')");
+        await context.Database.MigrateAsync();
+    }
+}
 
 
 // SEED ROLES

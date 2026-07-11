@@ -21,6 +21,8 @@ namespace MimaCare.Infrastructure.Context
 
         public DbSet<PatientFile> PatientFiles { get; set; }
 
+        public DbSet<DoctorSchedule> DoctorSchedules { get; set; }
+
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
@@ -81,6 +83,16 @@ namespace MimaCare.Infrastructure.Context
                 .WithMany(x => x.UploadedFiles)
                 .HasForeignKey(x => x.UploadedByUserId)
                 .OnDelete(DeleteBehavior.NoAction);
+
+            // DoctorSchedule
+            builder.Entity<DoctorSchedule>()
+                .HasOne(x => x.Doctor)
+                .WithMany(x => x.Schedules)
+                .HasForeignKey(x => x.DoctorId);
+
+            builder.Entity<DoctorSchedule>()
+                .Property(x => x.DayOfWeek)
+                .HasConversion<int>();
         }
     }
 }
