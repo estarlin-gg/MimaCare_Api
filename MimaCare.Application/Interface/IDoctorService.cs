@@ -17,5 +17,9 @@ namespace MimaCare.Application.Interface
         Task<string> UpdateDoctor(Guid doctorId, UpdateDoctorDto dto);
         Task<string> DeleteDoctor(Guid doctorId);
 
+        Task<string> ResetDoctorPassword(Guid doctorId);
+
+        Task<IEnumerable<string>> GetSpecialties();
+
     }
 }

@@ -25,28 +25,51 @@ namespace MimaCare.Infrastructure.Repositories
 
         public async Task<Appointment?> GetAppointmentById(Guid id)
         {
-            var appointment = await _repository.GetByIdAsync(id);
+            var appointment = await _context.Appointments
+                .Include(a => a.Clinic)
+                .Include(a => a.Patient)
+                .Include(a => a.Doctor)
+                .ThenInclude(d => d.User)
+                .FirstOrDefaultAsync(a => a.Id == id);
 
             return appointment;
         }
 
         public async Task<IEnumerable<Appointment>> GetAppointmentsByClinicId(Guid clinicId)
         {
-            var res = await _context.Appointments.Where(a => a.ClinicId == clinicId).ToListAsync();
+            var res = await _context.Appointments
+                .Include(a => a.Clinic)
+                .Include(a => a.Patient)
+                .Include(a => a.Doctor)
+                .ThenInclude(d => d.User)
+                .Where(a => a.ClinicId == clinicId)
+                .ToListAsync();
 
             return res;
         }
 
         public async Task<IEnumerable<Appointment>> GetAppointmentsByDoctorId(Guid doctorId)
         {
-            var res = await _context.Appointments.Where(a => a.DoctorId == doctorId).ToListAsync();
+            var res = await _context.Appointments
+                .Include(a => a.Clinic)
+                .Include(a => a.Patient)
+                .Include(a => a.Doctor)
+                .ThenInclude(d => d.User)
+                .Where(a => a.DoctorId == doctorId)
+                .ToListAsync();
 
             return res;
         }
 
         public async Task<IEnumerable<Appointment>> GetAppointmentsByPatientId(Guid patientId)
         {
-            var res = await _context.Appointments.Where(a => a.PatientId == patientId).ToListAsync();
+            var res = await _context.Appointments
+                .Include(a => a.Clinic)
+                .Include(a => a.Patient)
+                .Include(a => a.Doctor)
+                .ThenInclude(d => d.User)
+                .Where(a => a.PatientId == patientId)
+                .ToListAsync();
 
             return res;
         }

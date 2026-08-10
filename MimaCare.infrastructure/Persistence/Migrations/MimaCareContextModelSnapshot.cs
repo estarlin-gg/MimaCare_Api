@@ -375,6 +375,21 @@ namespace MimaCare.Infrastructure.Persistence.Migrations
                     b.ToTable("DoctorSchedules");
                 });
 
+            modelBuilder.Entity("MimaCare.Domain.Entities.DoctorSpecialty", b =>
+                {
+                    b.Property<Guid>("DoctorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("SpecialtyId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("DoctorId", "SpecialtyId");
+
+                    b.HasIndex("SpecialtyId");
+
+                    b.ToTable("DoctorSpecialties");
+                });
+
             modelBuilder.Entity("MimaCare.Domain.Entities.Patient", b =>
                 {
                     b.Property<Guid>("Id")
@@ -397,6 +412,9 @@ namespace MimaCare.Infrastructure.Persistence.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("LastName")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Notes")
                         .HasColumnType("text");
 
                     b.Property<string>("Phone")
@@ -440,6 +458,29 @@ namespace MimaCare.Infrastructure.Persistence.Migrations
                     b.HasIndex("UploadedByUserId");
 
                     b.ToTable("PatientFiles");
+                });
+
+            modelBuilder.Entity("MimaCare.Domain.Entities.Specialty", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Specialties");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
@@ -561,6 +602,25 @@ namespace MimaCare.Infrastructure.Persistence.Migrations
                     b.Navigation("Doctor");
                 });
 
+            modelBuilder.Entity("MimaCare.Domain.Entities.DoctorSpecialty", b =>
+                {
+                    b.HasOne("MimaCare.Domain.Entities.Doctor", "Doctor")
+                        .WithMany("DoctorSpecialties")
+                        .HasForeignKey("DoctorId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("MimaCare.Domain.Entities.Specialty", "Specialty")
+                        .WithMany("DoctorSpecialties")
+                        .HasForeignKey("SpecialtyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Doctor");
+
+                    b.Navigation("Specialty");
+                });
+
             modelBuilder.Entity("MimaCare.Domain.Entities.Patient", b =>
                 {
                     b.HasOne("MimaCare.Domain.Entities.Clinic", "Clinic")
@@ -613,6 +673,8 @@ namespace MimaCare.Infrastructure.Persistence.Migrations
                 {
                     b.Navigation("Appointments");
 
+                    b.Navigation("DoctorSpecialties");
+
                     b.Navigation("Schedules");
                 });
 
@@ -621,6 +683,11 @@ namespace MimaCare.Infrastructure.Persistence.Migrations
                     b.Navigation("Appointments");
 
                     b.Navigation("Files");
+                });
+
+            modelBuilder.Entity("MimaCare.Domain.Entities.Specialty", b =>
+                {
+                    b.Navigation("DoctorSpecialties");
                 });
 #pragma warning restore 612, 618
         }

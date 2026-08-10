@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using MimaCare.Application.Dtos.Auth;
 using MimaCare.Application.Interface;
@@ -28,6 +29,15 @@ namespace MimaCare.Presentation.Controllers
             var res = await _authService.Login(loginDto);
 
             return Ok(res);
+        }
+
+        [HttpPut("change-password")]
+        [Authorize]
+        public async Task<IActionResult> ChangePassword(ChangePasswordDto dto)
+        {
+            await _authService.ChangePassword(dto);
+
+            return Ok("Contraseña actualizada correctamente.");
         }
     }
 }

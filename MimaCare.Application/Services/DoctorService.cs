@@ -26,13 +26,15 @@ public class DoctorService : IDoctorService
     private readonly IUnitOfWork
         _unitOfWork;
     private readonly IUserService _userService;
+    private readonly ISpecialtyRepository _specialtyRepository;
 
     public DoctorService(
         UserManager<ApplicationUser> userManager,
         IDoctorRepository doctorRepository,
         IUnitOfWork unitOfWork,
         IUserService userService,
-        IHttpContextAccessor httpContextAccessor)
+        IHttpContextAccessor httpContextAccessor,
+        ISpecialtyRepository specialtyRepository)
     {
         _userManager = userManager;
 
@@ -42,6 +44,7 @@ public class DoctorService : IDoctorService
 
         _unitOfWork = unitOfWork;
         _userService = userService;
+        _specialtyRepository = specialtyRepository;
     }
 
     public async Task<string> CreateDoctor(
@@ -81,7 +84,9 @@ public class DoctorService : IDoctorService
                             FirstName = dto.FirstName,
                             LastName = dto.LastName,
                             Email = dto.Email,
-                            Password = dto.Password,
+                            Password = string.IsNullOrWhiteSpace(dto.Password)
+                                ? "123456"
+                                : dto.Password,
                             PhoneNumber = dto.PhoneNumber,
                             ClinicId = clinicId,
                             Role = Roles.Doctor
@@ -229,5 +234,38 @@ public class DoctorService : IDoctorService
         return "Doctor eliminado correctamente";
 
 
+    }
+
+    public async Task<string> ResetDoctorPassword(Guid doctorId)
+    {
+        var doctor = await _doctorRepository.GetDoctorById(doctorId)
+            ?? throw new NotFoundException("Doctor no existe");
+
+        var token = await _userManager
+            .GeneratePasswordResetTokenAsync(doctor.User);
+
+        var result = await _userManager
+            .ResetPasswordAsync(
+                doctor.User,
+                token,
+                "123456");
+
+        if (!result.Succeeded)
+        {
+            throw new BadRequestException(
+                string.Join(
+                    ", ",
+                    result.Errors
+                        .Select(x =>
+                            x.Description)));
+        }
+
+        return "Contraseña restablecida correctamente. La nueva contraseña es 123456.";
+    }
+
+    public async Task<IEnumerable<string>> GetSpecialties()
+    {
+        var specialties = await _specialtyRepository.GetAllSpecialties();
+        return specialties.Select(s => s.Name);
     }
 }

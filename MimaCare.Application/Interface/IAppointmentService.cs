@@ -10,6 +10,7 @@ namespace MimaCare.Application.Interface
         Task<IEnumerable<AppointmentDto>> GetAppointmentsByDoctorId(Guid doctorId);
         Task<IEnumerable<AppointmentDto>> GetAppointmentsByPatientId(Guid patientId);
         Task<AppointmentDto> CreateAppointment(CreateAppointmentDto dto);
+        Task<AppointmentDto> UpdateAppointment(Guid id, UpdateAppointmentDto dto);
         Task<AppointmentDto> UpdateAppointmentStatus(Guid id, UpdateAppointmentStatusDto dto);
         Task<AppointmentDto> AssignDoctor(Guid id, AssignDoctorDto dto);
     }

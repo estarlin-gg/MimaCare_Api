@@ -10,6 +10,7 @@ namespace MimaCare.Application.Mappers
         public void Register(TypeAdapterConfig config)
         {
             config.NewConfig<Appointment, AppointmentDto>()
+                .Map(dest => dest.DoctorId, src => src.Doctor.UserId)
                 .Map(dest => dest.ClinicName, src => src.Clinic.Name)
                 .Map(dest => dest.PatientName, src => $"{src.Patient.FirstName} {src.Patient.LastName}")
                 .Map(dest => dest.DoctorName, src => $"{src.Doctor.User.FirstName} {src.Doctor.User.LastName}");

@@ -10,7 +10,7 @@ namespace MimaCare.Application.Mappers
         {
             config.NewConfig<RegisterClinicDto, Clinic>()
                 .Map(dest => dest.Name, src => src.ClinicName)
-                .Map(dest => dest.Email, src => src.ClinicEmail)
+                .Map(dest => dest.Email, src => src.Email)
                 .Map(dest => dest.Phone, src => src.ClinicPhone)
                 .Map(dest => dest.Address, src => src.ClinicAddress);
         }

@@ -25,6 +25,9 @@ namespace MimaCare.Application.Validators.Patient
 
             RuleFor(x => x.Allergies)
                 .MaximumLength(500);
+
+            RuleFor(x => x.Notes)
+                .MaximumLength(2000);
         }
     }
 }

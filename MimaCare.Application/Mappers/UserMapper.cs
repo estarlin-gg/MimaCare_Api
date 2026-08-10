@@ -8,9 +8,7 @@ namespace MimaCare.Application.Mappers
     {
         public void Register(TypeAdapterConfig config)
         {
-            config.NewConfig<RegisterClinicDto, ApplicationUser>()
-                .Map(dest => dest.FirstName, src => src.FirstName)
-                .Map(dest => dest.LastName, src => src.LastName);
+            config.NewConfig<RegisterClinicDto, ApplicationUser>();
         }
     }
 }

@@ -23,6 +23,13 @@ namespace MimaCare.Presentation.Controllers
             return Success(doctors);
         }
 
+        [HttpGet("specialties")]
+        public async Task<IActionResult> GetSpecialties()
+        {
+            var specialties = await _doctorService.GetSpecialties();
+            return Success(specialties);
+        }
+
         [HttpPost]
         public async Task<IActionResult> CreateDoctor(CreateDoctorDto dto)
         {
@@ -53,6 +60,14 @@ namespace MimaCare.Presentation.Controllers
             var result = await _doctorService.DeleteDoctor(id);
 
             return Success(result, "Doctor eliminado");
+        }
+
+        [HttpPut("{id:guid}/reset-password")]
+        public async Task<IActionResult> ResetDoctorPassword(Guid id)
+        {
+            var result = await _doctorService.ResetDoctorPassword(id);
+
+            return Success(result, "Contraseña restablecida");
         }
     }
 }

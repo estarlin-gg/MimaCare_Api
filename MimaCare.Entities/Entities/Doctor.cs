@@ -36,5 +36,8 @@ namespace MimaCare.Domain.Entities
 
         public ICollection<DoctorSchedule> Schedules { get; set; }
             = new List<DoctorSchedule>();
+
+        public ICollection<DoctorSpecialty> DoctorSpecialties { get; set; }
+            = new List<DoctorSpecialty>();
     }
 }

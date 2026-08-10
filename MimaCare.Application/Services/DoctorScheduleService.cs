@@ -36,7 +36,7 @@ namespace MimaCare.Application.Services
             if (doctor == null || doctor.ClinicId != clinicId)
                 throw new NotFoundException("Doctor not found in this clinic.");
 
-            var schedules = await _scheduleRepository.GetSchedulesByDoctorId(doctorId);
+            var schedules = await _scheduleRepository.GetSchedulesByDoctorId(doctor.Id);
             return schedules.Adapt<IEnumerable<DoctorScheduleDto>>();
         }
 
@@ -52,7 +52,7 @@ namespace MimaCare.Application.Services
                 throw new NotFoundException("Doctor not found in this clinic.");
 
             // Remove existing schedules
-            var existingSchedules = await _scheduleRepository.GetSchedulesByDoctorId(doctorId);
+            var existingSchedules = await _scheduleRepository.GetSchedulesByDoctorId(doctor.Id);
             foreach (var existing in existingSchedules)
                 await _scheduleRepository.DeleteSchedule(existing);
 
@@ -60,7 +60,7 @@ namespace MimaCare.Application.Services
             foreach (var dto in scheduleDtos)
             {
                 var schedule = dto.Adapt<DoctorSchedule>();
-                schedule.DoctorId = doctorId;
+                schedule.DoctorId = doctor.Id;
                 await _scheduleRepository.CreateSchedule(schedule);
             }
 
@@ -78,7 +78,7 @@ namespace MimaCare.Application.Services
             if (doctor == null || doctor.ClinicId != clinicId)
                 throw new NotFoundException("Doctor not found in this clinic.");
 
-            var existingSchedules = await _scheduleRepository.GetSchedulesByDoctorId(doctorId);
+            var existingSchedules = await _scheduleRepository.GetSchedulesByDoctorId(doctor.Id);
             foreach (var existing in existingSchedules)
                 await _scheduleRepository.DeleteSchedule(existing);
 

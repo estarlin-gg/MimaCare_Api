@@ -1,4 +1,5 @@
 ﻿using Mapster;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
@@ -32,12 +33,16 @@ public class AuthService : IAuthService
     private readonly IUnitOfWork
         _unitOfWork;
 
+    private readonly IHttpContextAccessor
+        _httpContextAccessor;
+
     public AuthService(
         UserManager<ApplicationUser> userManager,
         SignInManager<ApplicationUser> signInManager,
         IConfiguration configuration,
         IClinicRepository clinicRepository,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        IHttpContextAccessor httpContextAccessor)
     {
         _userManager = userManager;
 
@@ -48,6 +53,8 @@ public class AuthService : IAuthService
         _clinicRepository = clinicRepository;
 
         _unitOfWork = unitOfWork;
+
+        _httpContextAccessor = httpContextAccessor;
     }
 
     // =====================================================
@@ -123,10 +130,15 @@ public class AuthService : IAuthService
             await _unitOfWork
                 .CommitAsync();
 
+            var token = await GenerateToken(user);
+
             return new AuthResponseDto
             {
-                Message =
-                    "Clinic registered successfully."
+                FullName = clinic.Name,
+                ClinicName = clinic.Name,
+                Role = Roles.Clinic,
+                Token = token,
+                Message = "Clinic registered successfully."
             };
         }
         catch
@@ -166,12 +178,63 @@ public class AuthService : IAuthService
         var token =
             await GenerateToken(user);
 
+        var roles = await _userManager
+            .GetRolesAsync(user);
+
+        var clinic = await _clinicRepository
+            .GetByIdAsync(user.ClinicId);
+
+        var fullName = string.IsNullOrWhiteSpace(user.FirstName)
+            ? clinic?.Name ?? user.Email
+            : $"{user.FirstName} {user.LastName}".Trim();
+
         return new AuthResponseDto
         {
-            Message = "Login successful.",
-
-            Token = token
+            FullName = fullName,
+            ClinicName = clinic?.Name,
+            Role = roles.FirstOrDefault(),
+            Token = token,
+            Message = "Login successful."
         };
+    }
+
+
+    public async Task ChangePassword(ChangePasswordDto dto)
+    {
+        var userId = _httpContextAccessor
+            .HttpContext?
+            .User?
+            .FindFirst(ClaimTypes.NameIdentifier)?
+            .Value;
+
+        if (string.IsNullOrEmpty(userId))
+        {
+            throw new UnauthorizedException("User not found.");
+        }
+
+        var user = await _userManager
+            .FindByIdAsync(userId);
+
+        if (user == null)
+        {
+            throw new UnauthorizedException("User not found.");
+        }
+
+        var result = await _userManager
+            .ChangePasswordAsync(
+                user,
+                dto.CurrentPassword,
+                dto.NewPassword);
+
+        if (!result.Succeeded)
+        {
+            var message = result.Errors
+                .Any(e => e.Code == "PasswordMismatch")
+                ? "La contraseña actual no es correcta."
+                : string.Join(", ", result.Errors.Select(e => e.Description));
+
+            throw new BadRequestException(message);
+        }
     }
 
 

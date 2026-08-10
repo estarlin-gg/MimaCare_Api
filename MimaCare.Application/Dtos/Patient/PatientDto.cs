@@ -19,6 +19,8 @@ namespace MimaCare.Application.Dtos.Patient
 
         public string? Allergies { get; set; }
 
+        public string? Notes { get; set; }
+
         public string ClinicName { get; set; }
             = default!;
 

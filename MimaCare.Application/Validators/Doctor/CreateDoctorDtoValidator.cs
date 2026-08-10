@@ -27,11 +27,11 @@ namespace MimaCare.Application.Validators.Doctor
                 .WithMessage("Invalid email format.");
 
             RuleFor(x => x.Password)
-                .NotEmpty()
-                .WithMessage("Password is required.")
-                .MinimumLength(8)
+                .MinimumLength(6)
                 .WithMessage(
-                    "Password must be at least 8 characters.");
+                    "Password must be at least 6 characters.")
+                .When(x => !string.IsNullOrWhiteSpace(
+                    x.Password));
 
             RuleFor(x => x.PhoneNumber)
                 .NotEmpty()

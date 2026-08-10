@@ -124,6 +124,8 @@ builder.Services.AddScoped<IPatientService, PatientService>();
 
 builder.Services.AddScoped<IDoctorScheduleService, DoctorScheduleService>();
 
+builder.Services.AddScoped<ISpecialtyService, SpecialtyService>();
+
 builder.Services.AddScoped<IUserService, UserService>();
 
 
@@ -138,6 +140,8 @@ builder.Services.AddScoped<IPatientRepository,PatientRepository>();
 builder.Services.AddScoped<IAppointmentRepository, AppointmentRepository>();
 
 builder.Services.AddScoped<IDoctorScheduleRepository, DoctorScheduleRepository>();
+
+builder.Services.AddScoped<ISpecialtyRepository, SpecialtyRepository>();
 
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
@@ -197,6 +201,14 @@ using (var scope = app.Services.CreateScope())
                 RoleManager<IdentityRole<Guid>>>();
 
     await RoleSeeder.SeedAsync(roleManager);
+}
+
+using (var scope = app.Services.CreateScope())
+{
+    var context = scope.ServiceProvider
+        .GetRequiredService<MimaCareContext>();
+
+    await SpecialtySeeder.SeedAsync(context);
 }
 
 

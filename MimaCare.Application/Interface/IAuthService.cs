@@ -7,5 +7,7 @@ namespace MimaCare.Application.Interface
         Task<AuthResponseDto> Login(LoginDto loginDto);
 
         Task<AuthResponseDto> Register(RegisterClinicDto registerDto);
+
+        Task ChangePassword(ChangePasswordDto dto);
     }
 }

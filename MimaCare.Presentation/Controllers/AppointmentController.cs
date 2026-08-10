@@ -6,8 +6,7 @@ using MimaCare.Infrastructure.Constants;
 using MimaCare.Presentation.Common;
 
 namespace MimaCare.Presentation.Controllers
-{
-    [Route("api/[controller]")]
+{    [Route("api/[controller]")]
     [ApiController]
     [Authorize]
     public class AppointmentController : BaseController
@@ -45,6 +44,13 @@ namespace MimaCare.Presentation.Controllers
         {
             var appointment = await _appointmentService.CreateAppointment(dto);
             return CreatedResponse(appointment, "Appointment created successfully.");
+        }
+
+        [HttpPut("{id:guid}")]
+        public async Task<IActionResult> UpdateAppointment(Guid id, UpdateAppointmentDto dto)
+        {
+            var appointment = await _appointmentService.UpdateAppointment(id, dto);
+            return Success(appointment, "Appointment updated successfully.");
         }
 
         [HttpPut("{id:guid}/status")]

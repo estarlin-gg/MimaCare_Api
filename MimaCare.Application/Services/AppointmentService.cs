@@ -57,10 +57,7 @@ namespace MimaCare.Application.Services
             }
             else if (roles.Contains(Roles.Doctor))
             {
-                var doctor = await _doctorRepository.GetDoctorById(Guid.Parse(userId!));
-                if (doctor == null)
-                    throw new UnauthorizedException("Doctor profile not found.");
-                doctorId = doctor.Id;
+                doctorId = Guid.Parse(userId!);
             }
             else
             {
@@ -73,10 +70,10 @@ namespace MimaCare.Application.Services
                 throw new NotFoundException("Doctor not found in this clinic.");
 
             // Validate schedule if exists (open schedule = no restriction)
-            await ValidateSchedule(doctorId, dto.AppointmentDate, dto.StartTime, dto.EndTime);
+            await ValidateSchedule(doctorEntity.Id, dto.AppointmentDate, dto.StartTime, dto.EndTime);
 
             // Check for overlapping appointments
-            var existingAppointments = await _appointmentRepository.GetAppointmentsByDoctorId(doctorId);
+            var existingAppointments = await _appointmentRepository.GetAppointmentsByDoctorId(doctorEntity.Id);
             var overlapping = existingAppointments.Any(a =>
                 a.AppointmentDate == dto.AppointmentDate &&
                 a.Status != AppointmentStatus.Cancelled &&
@@ -89,7 +86,7 @@ namespace MimaCare.Application.Services
 
             var appointment = dto.Adapt<Appointment>();
             appointment.ClinicId = clinicId;
-            appointment.DoctorId = doctorId;
+            appointment.DoctorId = doctorEntity.Id;
             appointment.Status = AppointmentStatus.Pending;
 
             await _appointmentRepository.CreateAppointment(appointment);
@@ -139,7 +136,7 @@ namespace MimaCare.Application.Services
             if (doctor == null || doctor.ClinicId != clinicId)
                 throw new NotFoundException("Doctor not found in this clinic.");
 
-            var appointments = await _appointmentRepository.GetAppointmentsByDoctorId(doctorId);
+            var appointments = await _appointmentRepository.GetAppointmentsByDoctorId(doctor.Id);
             return appointments.Adapt<IEnumerable<AppointmentDto>>();
         }
 
@@ -157,11 +154,69 @@ namespace MimaCare.Application.Services
         public async Task<AppointmentDto> UpdateAppointmentStatus(Guid id, UpdateAppointmentStatusDto dto)
         {
             var clinicId = GetClinicId();
+            var roles = GetUserRoles();
             var appointment = await _appointmentRepository.GetAppointmentById(id);
             if (appointment == null || appointment.ClinicId != clinicId)
                 throw new NotFoundException("Appointment not found.");
 
+            if (roles.Contains(Roles.Doctor))
+            {
+                var userId = GetUserId();
+                var doctor = await _doctorRepository.GetDoctorById(Guid.Parse(userId!));
+                if (doctor == null || appointment.DoctorId != doctor.Id)
+                    throw new ForbiddenException("You can only update your own appointments.");
+            }
+
             appointment.Status = dto.Status;
+            await _unitOfWork.CommitAsync();
+
+            return await GetFullAppointment(appointment.Id);
+        }
+
+        public async Task<AppointmentDto> UpdateAppointment(Guid id, UpdateAppointmentDto dto)
+        {
+            var clinicId = GetClinicId();
+            var roles = GetUserRoles();
+
+            var appointment = await _appointmentRepository.GetAppointmentById(id);
+            if (appointment == null || appointment.ClinicId != clinicId)
+                throw new NotFoundException("Appointment not found.");
+
+            if (roles.Contains(Roles.Doctor))
+            {
+                var userId = GetUserId();
+                var doctor = await _doctorRepository.GetDoctorById(Guid.Parse(userId!));
+                if (doctor == null || appointment.DoctorId != doctor.Id)
+                    throw new ForbiddenException("You can only edit your own appointments.");
+            }
+
+            // Validate patient belongs to clinic
+            var patient = await _patientRepository.GetPatientById(dto.PatientId, clinicId);
+            if (patient == null)
+                throw new NotFoundException("Patient not found in this clinic.");
+
+            // Validate schedule if exists
+            await ValidateSchedule(appointment.DoctorId, dto.AppointmentDate, dto.StartTime, dto.EndTime);
+
+            // Check for overlapping appointments (excluding the current one)
+            var existingAppointments = await _appointmentRepository.GetAppointmentsByDoctorId(appointment.DoctorId);
+            var overlapping = existingAppointments.Any(a =>
+                a.Id != appointment.Id &&
+                a.AppointmentDate == dto.AppointmentDate &&
+                a.Status != AppointmentStatus.Cancelled &&
+                a.Status != AppointmentStatus.Rejected &&
+                ((dto.StartTime >= a.StartTime && dto.StartTime < a.EndTime) ||
+                 (dto.EndTime > a.StartTime && dto.EndTime <= a.EndTime) ||
+                 (dto.StartTime <= a.StartTime && dto.EndTime >= a.EndTime)));
+            if (overlapping)
+                throw new ConflictException("The doctor already has an appointment in this time slot.");
+
+            appointment.PatientId = dto.PatientId;
+            appointment.AppointmentDate = dto.AppointmentDate;
+            appointment.StartTime = dto.StartTime;
+            appointment.EndTime = dto.EndTime;
+            appointment.Notes = dto.Notes;
+
             await _unitOfWork.CommitAsync();
 
             return await GetFullAppointment(appointment.Id);
@@ -183,10 +238,10 @@ namespace MimaCare.Application.Services
                 throw new NotFoundException("Doctor not found in this clinic.");
 
             // Validate schedule if exists
-            await ValidateSchedule(dto.DoctorId, appointment.AppointmentDate,
+            await ValidateSchedule(doctor.Id, appointment.AppointmentDate,
                 appointment.StartTime ?? TimeOnly.MinValue, appointment.EndTime ?? TimeOnly.MinValue);
 
-            appointment.DoctorId = dto.DoctorId;
+            appointment.DoctorId = doctor.Id;
             await _unitOfWork.CommitAsync();
 
             return await GetFullAppointment(appointment.Id);

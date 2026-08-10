@@ -23,6 +23,10 @@ namespace MimaCare.Infrastructure.Context
 
         public DbSet<DoctorSchedule> DoctorSchedules { get; set; }
 
+        public DbSet<Specialty> Specialties { get; set; }
+
+        public DbSet<DoctorSpecialty> DoctorSpecialties { get; set; }
+
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
@@ -93,6 +97,20 @@ namespace MimaCare.Infrastructure.Context
             builder.Entity<DoctorSchedule>()
                 .Property(x => x.DayOfWeek)
                 .HasConversion<int>();
+
+            // DoctorSpecialty (many-to-many)
+            builder.Entity<DoctorSpecialty>()
+                .HasKey(x => new { x.DoctorId, x.SpecialtyId });
+
+            builder.Entity<DoctorSpecialty>()
+                .HasOne(x => x.Doctor)
+                .WithMany(x => x.DoctorSpecialties)
+                .HasForeignKey(x => x.DoctorId);
+
+            builder.Entity<DoctorSpecialty>()
+                .HasOne(x => x.Specialty)
+                .WithMany(x => x.DoctorSpecialties)
+                .HasForeignKey(x => x.SpecialtyId);
         }
     }
 }
