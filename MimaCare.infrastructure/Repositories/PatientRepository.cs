@@ -63,13 +63,25 @@ namespace MimaCare.Infrastructure.Repositories
         public async Task<PagedResult<Patient>> GetPatients(
             Guid clinicId,
             int page,
-            int pageSize)
+            int pageSize,
+            string? search = null)
         {
             var query = _context
                 .Patients
                 .Include(x => x.Clinic)
                 .Where(x =>
                     x.ClinicId == clinicId);
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var pattern = $"%{search.Trim()}%";
+
+                query = query.Where(x =>
+                    EF.Functions.ILike(x.FirstName, pattern) ||
+                    EF.Functions.ILike(x.LastName, pattern) ||
+                    EF.Functions.ILike(x.Phone, pattern) ||
+                    EF.Functions.ILike(x.Address, pattern));
+            }
 
             var totalCount =
                 await query.CountAsync();

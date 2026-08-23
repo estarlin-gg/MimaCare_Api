@@ -4,7 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace MimaCare.Infrastructure.Repositories.Abstraction
+namespace MimaCare.Domain.Interfaces
 {
     public interface IDoctorRepository
     {
@@ -12,7 +12,7 @@ namespace MimaCare.Infrastructure.Repositories.Abstraction
 
         Task<Doctor?> GetDoctorById(Guid doctorId);
 
-        Task<PagedResult<Doctor>> GetDoctors(Guid clinicId, int page, int pageSize);
+        Task<PagedResult<Doctor>> GetDoctors(Guid clinicId, int page, int pageSize, string? search = null);
 
         Task UpdateDoctor(Doctor doctor);
 

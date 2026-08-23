@@ -24,6 +24,7 @@ namespace MimaCare.Domain.Interfaces
         Task<PagedResult<Patient>> GetPatients(
             Guid clinicId,
             int page,
-            int pageSize);
+            int pageSize,
+            string? search = null);
     }
 }

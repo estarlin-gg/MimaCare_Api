@@ -9,6 +9,13 @@ namespace MimaCare.Application.Dtos.Common
 
         public int PageSize { get; set; } = DefaultPageSize;
 
+        public string? Search { get; set; }
+
+        public string? EffectiveSearch
+            => string.IsNullOrWhiteSpace(Search)
+                ? null
+                : Search.Trim();
+
         public int EffectivePage
             => Page < 1 ? 1 : Page;
 

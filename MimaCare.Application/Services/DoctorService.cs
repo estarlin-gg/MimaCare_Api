@@ -148,7 +148,8 @@ public class DoctorService : IDoctorService
                 .GetDoctors(
                     clinicId,
                     pagination.EffectivePage,
-                    pagination.EffectivePageSize);
+                    pagination.EffectivePageSize,
+                    pagination.EffectiveSearch);
 
         return doctors
             .AdaptTo<Doctor, DoctorDto>();

@@ -33,7 +33,8 @@ namespace MimaCare.Application.Services
             var patients = await _patientRepository.GetPatients(
                 clinicId,
                 pagination.EffectivePage,
-                pagination.EffectivePageSize);
+                pagination.EffectivePageSize,
+                pagination.EffectiveSearch);
             return patients.AdaptTo<Patient, PatientDto>();
         }
 
