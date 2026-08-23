@@ -1,10 +1,12 @@
-﻿using MimaCare.Application.Dtos.Patient;
+﻿using MimaCare.Application.Dtos.Common;
+using MimaCare.Application.Dtos.Patient;
+using MimaCare.Domain.Common;
 
 namespace MimaCare.Application.Interface
 {
     public interface IPatientService
     {
-        Task<IEnumerable<PatientDto>> GetPatients();
+        Task<PagedResult<PatientDto>> GetPatients(PaginationParams pagination);
         Task<PatientDto> GetPatientById(Guid id);
         Task<string> CreatePatient(CreatePatientDto dto);
         Task<string> UpdatePatient(Guid id, UpdatePatientDto dto);

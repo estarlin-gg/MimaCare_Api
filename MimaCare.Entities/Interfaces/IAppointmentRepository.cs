@@ -1,4 +1,5 @@
-﻿using MimaCare.Domain.Entities;
+﻿using MimaCare.Domain.Common;
+using MimaCare.Domain.Entities;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -11,14 +12,9 @@ namespace MimaCare.Domain.Interfaces
 
         Task<Appointment?> GetAppointmentById(Guid id);
 
-        Task<IEnumerable<Appointment>> GetAppointmentsByPatientId(Guid patientId);
+        Task<PagedResult<Appointment>> GetAppointmentsByPatientId(Guid patientId, int page, int pageSize);
         Task<IEnumerable<Appointment>> GetAppointmentsByDoctorId(Guid doctorId);
-        Task<IEnumerable<Appointment>> GetAppointmentsByClinicId(Guid clinicId);
-
-
-
-        
-
-
+        Task<PagedResult<Appointment>> GetAppointmentsByDoctorId(Guid doctorId, int page, int pageSize);
+        Task<PagedResult<Appointment>> GetAppointmentsByClinicId(Guid clinicId, int page, int pageSize);
     }
 }

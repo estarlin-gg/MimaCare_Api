@@ -460,6 +460,29 @@ namespace MimaCare.Infrastructure.Persistence.Migrations
                     b.ToTable("PatientFiles");
                 });
 
+            modelBuilder.Entity("MimaCare.Domain.Entities.RevokedToken", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Jti")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Jti")
+                        .IsUnique();
+
+                    b.ToTable("RevokedTokens");
+                });
+
             modelBuilder.Entity("MimaCare.Domain.Entities.Specialty", b =>
                 {
                     b.Property<Guid>("Id")

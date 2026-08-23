@@ -1,4 +1,5 @@
 ﻿using MimaCare.Application.Dtos.Auth;
+using MimaCare.Domain.Common;
 
 namespace MimaCare.Application.Interface
 {
@@ -9,5 +10,13 @@ namespace MimaCare.Application.Interface
         Task<AuthResponseDto> Register(RegisterClinicDto registerDto);
 
         Task ChangePassword(ChangePasswordDto dto);
+
+        Task<ForgotPasswordResponseDto> ForgotPassword(ForgotPasswordDto dto);
+
+        Task ResetPassword(ResetPasswordDto dto);
+
+        Task AdminResetPassword(Guid userId, AdminResetPasswordDto dto);
+
+        Task Logout();
     }
 }

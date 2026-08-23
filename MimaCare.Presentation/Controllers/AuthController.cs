@@ -39,5 +39,39 @@ namespace MimaCare.Presentation.Controllers
 
             return Ok("Contraseña actualizada correctamente.");
         }
+
+        [HttpPost("forgot-password")]
+        public async Task<ActionResult<ForgotPasswordResponseDto>> ForgotPassword(ForgotPasswordDto dto)
+        {
+            var res = await _authService.ForgotPassword(dto);
+
+            return Ok(res);
+        }
+
+        [HttpPost("reset-password")]
+        public async Task<IActionResult> ResetPassword(ResetPasswordDto dto)
+        {
+            await _authService.ResetPassword(dto);
+
+            return Ok("Contraseña restablecida correctamente.");
+        }
+
+        [HttpPut("reset-password/{userId:guid}")]
+        [Authorize(Roles = "Clinic,Super")]
+        public async Task<IActionResult> AdminResetPassword(Guid userId, AdminResetPasswordDto dto)
+        {
+            await _authService.AdminResetPassword(userId, dto);
+
+            return Ok("Contraseña restablecida correctamente.");
+        }
+
+        [HttpPost("logout")]
+        [Authorize]
+        public async Task<IActionResult> Logout()
+        {
+            await _authService.Logout();
+
+            return Ok("Sesión cerrada correctamente.");
+        }
     }
 }

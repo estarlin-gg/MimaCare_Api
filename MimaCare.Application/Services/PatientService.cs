@@ -1,8 +1,11 @@
 using Mapster;
 using Microsoft.AspNetCore.Http;
+using MimaCare.Application.Common;
 using MimaCare.Application.Common.Exceptions;
+using MimaCare.Application.Dtos.Common;
 using MimaCare.Application.Dtos.Patient;
 using MimaCare.Application.Interface;
+using MimaCare.Domain.Common;
 using MimaCare.Domain.Entities;
 using MimaCare.Domain.Interfaces;
 
@@ -24,11 +27,14 @@ namespace MimaCare.Application.Services
             _unitOfWork = unitOfWork;
         }
 
-        public async Task<IEnumerable<PatientDto>> GetPatients()
+        public async Task<PagedResult<PatientDto>> GetPatients(PaginationParams pagination)
         {
             var clinicId = GetClinicId();
-            var patients = await _patientRepository.GetPatients(clinicId);
-            return patients.Adapt<IEnumerable<PatientDto>>();
+            var patients = await _patientRepository.GetPatients(
+                clinicId,
+                pagination.EffectivePage,
+                pagination.EffectivePageSize);
+            return patients.AdaptTo<Patient, PatientDto>();
         }
 
         public async Task<PatientDto> GetPatientById(Guid id)

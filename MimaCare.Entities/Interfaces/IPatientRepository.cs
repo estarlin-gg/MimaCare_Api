@@ -1,4 +1,5 @@
-﻿using MimaCare.Domain.Entities;
+﻿using MimaCare.Domain.Common;
+using MimaCare.Domain.Entities;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -20,7 +21,9 @@ namespace MimaCare.Domain.Interfaces
             Guid patientId,
             Guid clinicId);
 
-        Task<IEnumerable<Patient>> GetPatients(
-            Guid clinicId);
+        Task<PagedResult<Patient>> GetPatients(
+            Guid clinicId,
+            int page,
+            int pageSize);
     }
 }

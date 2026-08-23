@@ -1,10 +1,13 @@
 ﻿using Mapster;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
+using MimaCare.Application.Common;
 using MimaCare.Application.Common.Exceptions;
 using MimaCare.Application.Dtos.Auth;
+using MimaCare.Application.Dtos.Common;
 using MimaCare.Application.Dtos.Doctor;
 using MimaCare.Application.Interface;
+using MimaCare.Domain.Common;
 using MimaCare.Domain.Entities;
 using MimaCare.Domain.Interfaces;
 using MimaCare.Infrastructure.Constants;
@@ -116,7 +119,7 @@ public class DoctorService : IDoctorService
         }
     }
 
-    public async Task<IEnumerable<DoctorDto>> GetAllDoctor()
+    public async Task<PagedResult<DoctorDto>> GetAllDoctor(PaginationParams pagination)
     {
         var clinicIdClaim =
             _httpContextAccessor
@@ -142,10 +145,13 @@ public class DoctorService : IDoctorService
 
         var doctors =
             await _doctorRepository
-                .GetDoctors(clinicId);
+                .GetDoctors(
+                    clinicId,
+                    pagination.EffectivePage,
+                    pagination.EffectivePageSize);
 
         return doctors
-            .Adapt<IEnumerable<DoctorDto>>();
+            .AdaptTo<Doctor, DoctorDto>();
     }
 
     public async Task<DoctorDto> GetDoctorById(Guid id)

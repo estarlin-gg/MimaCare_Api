@@ -1,4 +1,6 @@
-﻿using MimaCare.Application.Dtos.Doctor;
+﻿using MimaCare.Application.Dtos.Common;
+using MimaCare.Application.Dtos.Doctor;
+using MimaCare.Domain.Common;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -12,7 +14,7 @@ namespace MimaCare.Application.Interface
 
         Task<DoctorDto> GetDoctorById(Guid id);
 
-        Task<IEnumerable<DoctorDto>> GetAllDoctor();
+        Task<PagedResult<DoctorDto>> GetAllDoctor(PaginationParams pagination);
 
         Task<string> UpdateDoctor(Guid doctorId, UpdateDoctorDto dto);
         Task<string> DeleteDoctor(Guid doctorId);

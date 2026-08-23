@@ -27,6 +27,8 @@ namespace MimaCare.Infrastructure.Context
 
         public DbSet<DoctorSpecialty> DoctorSpecialties { get; set; }
 
+        public DbSet<RevokedToken> RevokedTokens { get; set; }
+
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
@@ -50,7 +52,7 @@ namespace MimaCare.Infrastructure.Context
                 .WithMany(x => x.Doctors)
                 .HasForeignKey(x => x.ClinicId);
 
-            
+
             // Patient
 
             builder.Entity<Patient>()
@@ -111,6 +113,11 @@ namespace MimaCare.Infrastructure.Context
                 .HasOne(x => x.Specialty)
                 .WithMany(x => x.DoctorSpecialties)
                 .HasForeignKey(x => x.SpecialtyId);
+
+            // RevokedToken (JWT logout blacklist)
+            builder.Entity<RevokedToken>()
+                .HasIndex(x => x.Jti)
+                .IsUnique();
         }
     }
 }

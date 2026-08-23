@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MimaCare.Application.Dtos.Appointment;
+using MimaCare.Application.Dtos.Common;
 using MimaCare.Application.Interface;
 using MimaCare.Infrastructure.Constants;
 using MimaCare.Presentation.Common;
@@ -19,16 +20,16 @@ namespace MimaCare.Presentation.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetAppointments()
+        public async Task<IActionResult> GetAppointments([FromQuery] PaginationParams pagination)
         {
-            var appointments = await _appointmentService.GetAppointmentsByClinic();
+            var appointments = await _appointmentService.GetAppointmentsByClinic(pagination);
             return Success(appointments);
         }
 
         [HttpGet("my")]
-        public async Task<IActionResult> GetMyAppointments()
+        public async Task<IActionResult> GetMyAppointments([FromQuery] PaginationParams pagination)
         {
-            var appointments = await _appointmentService.GetMyAppointments();
+            var appointments = await _appointmentService.GetMyAppointments(pagination);
             return Success(appointments);
         }
 
@@ -69,16 +70,16 @@ namespace MimaCare.Presentation.Controllers
         }
 
         [HttpGet("by-doctor/{doctorId:guid}")]
-        public async Task<IActionResult> GetByDoctor(Guid doctorId)
+        public async Task<IActionResult> GetByDoctor(Guid doctorId, [FromQuery] PaginationParams pagination)
         {
-            var appointments = await _appointmentService.GetAppointmentsByDoctorId(doctorId);
+            var appointments = await _appointmentService.GetAppointmentsByDoctorId(doctorId, pagination);
             return Success(appointments);
         }
 
         [HttpGet("by-patient/{patientId:guid}")]
-        public async Task<IActionResult> GetByPatient(Guid patientId)
+        public async Task<IActionResult> GetByPatient(Guid patientId, [FromQuery] PaginationParams pagination)
         {
-            var appointments = await _appointmentService.GetAppointmentsByPatientId(patientId);
+            var appointments = await _appointmentService.GetAppointmentsByPatientId(patientId, pagination);
             return Success(appointments);
         }
     }

@@ -1,4 +1,5 @@
-﻿using MimaCare.Domain.Entities;
+﻿using MimaCare.Domain.Common;
+using MimaCare.Domain.Entities;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -11,7 +12,7 @@ namespace MimaCare.Infrastructure.Repositories.Abstraction
 
         Task<Doctor?> GetDoctorById(Guid doctorId);
 
-        Task<IEnumerable<Doctor>> GetDoctors(Guid clinicId);
+        Task<PagedResult<Doctor>> GetDoctors(Guid clinicId, int page, int pageSize);
 
         Task UpdateDoctor(Doctor doctor);
 

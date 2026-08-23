@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using MimaCare.Domain.Common;
 using MimaCare.Domain.Entities;
 using MimaCare.Domain.Interfaces;
 using MimaCare.Infrastructure.Context;
@@ -59,17 +60,34 @@ namespace MimaCare.Infrastructure.Repositories
                     x.ClinicId == clinicId);
         }
 
-        public async Task<IEnumerable<Patient>> GetPatients(
-            Guid clinicId)
+        public async Task<PagedResult<Patient>> GetPatients(
+            Guid clinicId,
+            int page,
+            int pageSize)
         {
-            return await _context
+            var query = _context
                 .Patients
                 .Include(x => x.Clinic)
                 .Where(x =>
-                    x.ClinicId == clinicId)
+                    x.ClinicId == clinicId);
+
+            var totalCount =
+                await query.CountAsync();
+
+            var items = await query
                 .OrderBy(x =>
                     x.FirstName)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
                 .ToListAsync();
+
+            return new PagedResult<Patient>
+            {
+                Items = items,
+                Page = page,
+                PageSize = pageSize,
+                TotalCount = totalCount
+            };
         }
     }
 }

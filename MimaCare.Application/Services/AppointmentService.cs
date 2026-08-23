@@ -1,8 +1,11 @@
 ﻿using Mapster;
 using Microsoft.AspNetCore.Http;
+using MimaCare.Application.Common;
 using MimaCare.Application.Common.Exceptions;
 using MimaCare.Application.Dtos.Appointment;
+using MimaCare.Application.Dtos.Common;
 using MimaCare.Application.Interface;
+using MimaCare.Domain.Common;
 using MimaCare.Domain.Entities;
 using MimaCare.Domain.Enums;
 using MimaCare.Domain.Interfaces;
@@ -105,14 +108,17 @@ namespace MimaCare.Application.Services
             return appointment.Adapt<AppointmentDto>();
         }
 
-        public async Task<IEnumerable<AppointmentDto>> GetAppointmentsByClinic()
+        public async Task<PagedResult<AppointmentDto>> GetAppointmentsByClinic(PaginationParams pagination)
         {
             var clinicId = GetClinicId();
-            var appointments = await _appointmentRepository.GetAppointmentsByClinicId(clinicId);
-            return appointments.Adapt<IEnumerable<AppointmentDto>>();
+            var appointments = await _appointmentRepository.GetAppointmentsByClinicId(
+                clinicId,
+                pagination.EffectivePage,
+                pagination.EffectivePageSize);
+            return appointments.AdaptTo<Appointment, AppointmentDto>();
         }
 
-        public async Task<IEnumerable<AppointmentDto>> GetMyAppointments()
+        public async Task<PagedResult<AppointmentDto>> GetMyAppointments(PaginationParams pagination)
         {
             var roles = GetUserRoles();
             var userId = GetUserId();
@@ -122,33 +128,42 @@ namespace MimaCare.Application.Services
                 var doctor = await _doctorRepository.GetDoctorById(Guid.Parse(userId!));
                 if (doctor == null)
                     throw new UnauthorizedException("Doctor profile not found.");
-                var appointments = await _appointmentRepository.GetAppointmentsByDoctorId(doctor.Id);
-                return appointments.Adapt<IEnumerable<AppointmentDto>>();
+                var appointments = await _appointmentRepository.GetAppointmentsByDoctorId(
+                    doctor.Id,
+                    pagination.EffectivePage,
+                    pagination.EffectivePageSize);
+                return appointments.AdaptTo<Appointment, AppointmentDto>();
             }
 
-            return await GetAppointmentsByClinic();
+            return await GetAppointmentsByClinic(pagination);
         }
 
-        public async Task<IEnumerable<AppointmentDto>> GetAppointmentsByDoctorId(Guid doctorId)
+        public async Task<PagedResult<AppointmentDto>> GetAppointmentsByDoctorId(Guid doctorId, PaginationParams pagination)
         {
             var clinicId = GetClinicId();
             var doctor = await _doctorRepository.GetDoctorById(doctorId);
             if (doctor == null || doctor.ClinicId != clinicId)
                 throw new NotFoundException("Doctor not found in this clinic.");
 
-            var appointments = await _appointmentRepository.GetAppointmentsByDoctorId(doctor.Id);
-            return appointments.Adapt<IEnumerable<AppointmentDto>>();
+            var appointments = await _appointmentRepository.GetAppointmentsByDoctorId(
+                doctor.Id,
+                pagination.EffectivePage,
+                pagination.EffectivePageSize);
+            return appointments.AdaptTo<Appointment, AppointmentDto>();
         }
 
-        public async Task<IEnumerable<AppointmentDto>> GetAppointmentsByPatientId(Guid patientId)
+        public async Task<PagedResult<AppointmentDto>> GetAppointmentsByPatientId(Guid patientId, PaginationParams pagination)
         {
             var clinicId = GetClinicId();
             var patient = await _patientRepository.GetPatientById(patientId, clinicId);
             if (patient == null)
                 throw new NotFoundException("Patient not found in this clinic.");
 
-            var appointments = await _appointmentRepository.GetAppointmentsByPatientId(patientId);
-            return appointments.Adapt<IEnumerable<AppointmentDto>>();
+            var appointments = await _appointmentRepository.GetAppointmentsByPatientId(
+                patientId,
+                pagination.EffectivePage,
+                pagination.EffectivePageSize);
+            return appointments.AdaptTo<Appointment, AppointmentDto>();
         }
 
         public async Task<AppointmentDto> UpdateAppointmentStatus(Guid id, UpdateAppointmentStatusDto dto)

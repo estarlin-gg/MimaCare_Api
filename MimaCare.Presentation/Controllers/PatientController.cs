@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using MimaCare.Application.Dtos.Common;
 using MimaCare.Application.Dtos.Patient;
 using MimaCare.Application.Interface;
 using MimaCare.Presentation.Common;
@@ -19,9 +20,9 @@ namespace MimaCare.Presentation.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetPatients()
+        public async Task<IActionResult> GetPatients([FromQuery] PaginationParams pagination)
         {
-            var patients = await _patientService.GetPatients();
+            var patients = await _patientService.GetPatients(pagination);
             return Success(patients);
         }
 

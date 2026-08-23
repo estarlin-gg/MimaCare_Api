@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using MimaCare.Domain.Common;
 using MimaCare.Domain.Entities;
 using MimaCare.Infrastructure.Context;
 using MimaCare.Infrastructure.Repositories.Abstraction;
@@ -34,16 +35,28 @@ namespace MimaCare.Infrastructure.Repositories
             return doctor;
         }
 
-        public async Task<IEnumerable<Doctor>> GetDoctors(Guid clinicId)
+        public async Task<PagedResult<Doctor>> GetDoctors(Guid clinicId, int page, int pageSize)
         {
-            //var doctors = await _repository.FindAsync(x => x.ClinicId == clinicId);
-            var doctors = await _mimaCareContext.Doctors
+            var query = _mimaCareContext.Doctors
                .Include(u => u.User)
                .ThenInclude(c => c.Clinic)
-               .Where(d => d.ClinicId == clinicId)
+               .Where(d => d.ClinicId == clinicId);
+
+            var totalCount = await query.CountAsync();
+
+            var items = await query
+               .OrderBy(d => d.User.FirstName)
+               .Skip((page - 1) * pageSize)
+               .Take(pageSize)
                .ToListAsync();
 
-            return doctors;
+            return new PagedResult<Doctor>
+            {
+                Items = items,
+                Page = page,
+                PageSize = pageSize,
+                TotalCount = totalCount
+            };
         }
 
         public async Task UpdateDoctor(Doctor doctor)

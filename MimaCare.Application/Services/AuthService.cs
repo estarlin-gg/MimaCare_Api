@@ -2,7 +2,9 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using MimaCare.Application.Common;
 using MimaCare.Application.Common.Exceptions;
 using MimaCare.Application.Dtos.Auth;
 using MimaCare.Application.Interface;
@@ -36,13 +38,21 @@ public class AuthService : IAuthService
     private readonly IHttpContextAccessor
         _httpContextAccessor;
 
+    private readonly IRevokedTokenRepository
+        _revokedTokenRepository;
+
+    private readonly IOptions<PasswordResetOptions>
+        _passwordResetOptions;
+
     public AuthService(
         UserManager<ApplicationUser> userManager,
         SignInManager<ApplicationUser> signInManager,
         IConfiguration configuration,
         IClinicRepository clinicRepository,
         IUnitOfWork unitOfWork,
-        IHttpContextAccessor httpContextAccessor)
+        IHttpContextAccessor httpContextAccessor,
+        IRevokedTokenRepository revokedTokenRepository,
+        IOptions<PasswordResetOptions> passwordResetOptions)
     {
         _userManager = userManager;
 
@@ -55,6 +65,10 @@ public class AuthService : IAuthService
         _unitOfWork = unitOfWork;
 
         _httpContextAccessor = httpContextAccessor;
+
+        _revokedTokenRepository = revokedTokenRepository;
+
+        _passwordResetOptions = passwordResetOptions;
     }
 
     // =====================================================
@@ -238,12 +252,213 @@ public class AuthService : IAuthService
     }
 
 
+    // =====================================================
+    // FORGOT PASSWORD (self-service, token based)
+    // =====================================================
+
+    public async Task<ForgotPasswordResponseDto>
+        ForgotPassword(ForgotPasswordDto dto)
+    {
+        var genericMessage =
+            "If the email exists, a password reset token has been generated.";
+
+        var user = await _userManager
+            .FindByEmailAsync(dto.Email);
+
+        if (user == null || !user.IsActive)
+        {
+            return new ForgotPasswordResponseDto
+            {
+                Message = genericMessage
+            };
+        }
+
+        var resetToken = await _userManager
+            .GeneratePasswordResetTokenAsync(user);
+
+        var response = new ForgotPasswordResponseDto
+        {
+            Message = genericMessage
+        };
+
+        // No email provider is configured: expose the token
+        // only in Development so the flow can be completed.
+        if (_passwordResetOptions.Value.ExposeResetToken)
+        {
+            response.ResetToken = resetToken;
+        }
+
+        return response;
+    }
+
+
+    // =====================================================
+    // RESET PASSWORD (self-service, token based)
+    // =====================================================
+
+    public async Task ResetPassword(ResetPasswordDto dto)
+    {
+        var user = await _userManager
+            .FindByEmailAsync(dto.Email);
+
+        if (user == null)
+        {
+            throw new BadRequestException(
+                "Invalid or expired reset token.");
+        }
+
+        var result = await _userManager
+            .ResetPasswordAsync(
+                user,
+                dto.Token,
+                dto.NewPassword);
+
+        if (!result.Succeeded)
+        {
+            throw new BadRequestException(
+                string.Join(
+                    ", ",
+                    result.Errors
+                        .Select(x =>
+                            x.Description)));
+        }
+    }
+
+
+    // =====================================================
+    // ADMIN RESET PASSWORD (Clinic/Super force reset)
+    // =====================================================
+
+    public async Task AdminResetPassword(Guid userId, AdminResetPasswordDto dto)
+    {
+        var roles = GetUserRoles();
+
+        if (!roles.Contains(Roles.Clinic) && !roles.Contains(Roles.Admin))
+        {
+            throw new ForbiddenException(
+                "Only clinic admins can reset passwords.");
+        }
+
+        var callerClinicId =
+            GetClinicId();
+
+        var user = await _userManager
+            .FindByIdAsync(userId.ToString());
+
+        if (user == null || user.ClinicId != callerClinicId)
+        {
+            throw new NotFoundException(
+                "User not found in this clinic.");
+        }
+
+        var resetToken = await _userManager
+            .GeneratePasswordResetTokenAsync(user);
+
+        var result = await _userManager
+            .ResetPasswordAsync(
+                user,
+                resetToken,
+                dto.NewPassword);
+
+        if (!result.Succeeded)
+        {
+            throw new BadRequestException(
+                string.Join(
+                    ", ",
+                    result.Errors
+                        .Select(x =>
+                            x.Description)));
+        }
+    }
+
+
+    // =====================================================
+    // LOGOUT (JWT revocation via blacklist)
+    // =====================================================
+
+    public async Task Logout()
+    {
+        var jti =
+            GetJtiClaim();
+
+        if (string.IsNullOrEmpty(jti))
+        {
+            throw new BadRequestException(
+                "This session cannot be revoked server-side. Please sign in again.");
+        }
+
+        var expiresAt =
+            ParseTokenExpiration() ?? DateTime.UtcNow.AddMonths(2);
+
+        await _revokedTokenRepository
+            .AddAsync(new RevokedToken
+            {
+                Jti = jti,
+                ExpiresAt = expiresAt
+            });
+
+        // Opportunistic cleanup of already-expired rows.
+        await _revokedTokenRepository
+            .DeleteExpiredAsync();
+
+        await _revokedTokenRepository
+            .SaveChangesAsync();
+    }
+
+    private string? GetJtiClaim()
+    {
+        var user = _httpContextAccessor
+            .HttpContext?
+            .User;
+
+        return user?.FindFirst(JwtRegisteredClaimNames.Jti)?.Value
+            ?? user?.FindFirst(ClaimTypes.SerialNumber)?.Value;
+    }
+
+    private DateTime? ParseTokenExpiration()
+    {
+        var user = _httpContextAccessor
+            .HttpContext?
+            .User;
+
+        var expValue =
+            user?.FindFirst(JwtRegisteredClaimNames.Exp)?.Value
+            ?? user?.FindFirst(ClaimTypes.Expiration)?.Value;
+
+        if (long.TryParse(expValue, out var seconds))
+        {
+            return DateTimeOffset
+                .FromUnixTimeSeconds(seconds)
+                .UtcDateTime;
+        }
+
+        return null;
+    }
+
+    private Guid GetClinicId()
+    {
+        var claim = _httpContextAccessor.HttpContext?.User?.FindFirst("clinicId")?.Value;
+        if (string.IsNullOrEmpty(claim) || !Guid.TryParse(claim, out var clinicId))
+            throw new UnauthorizedException("Clinic not found.");
+        return clinicId;
+    }
+
+    private List<string> GetUserRoles()
+    {
+        var claims = _httpContextAccessor.HttpContext?.User?.FindAll(ClaimTypes.Role);
+        return claims?.Select(c => c.Value).ToList() ?? new List<string>();
+    }
+
+
     private async Task<string>
         GenerateToken(
             ApplicationUser user)
     {
         var roles = await _userManager
             .GetRolesAsync(user);
+
+        var jti =
+            Guid.NewGuid().ToString();
 
         var claims = new List<Claim>
         {
@@ -261,7 +476,18 @@ public class AuthService : IAuthService
 
             new Claim(
                 "clinicId",
-                user.ClinicId.ToString())
+                user.ClinicId.ToString()),
+
+            // Stored under both types so it can be
+            // read back deterministically regardless
+            // of inbound claim mapping.
+            new Claim(
+                JwtRegisteredClaimNames.Jti,
+                jti),
+
+            new Claim(
+                ClaimTypes.SerialNumber,
+                jti)
         };
 
         foreach (var role in roles)

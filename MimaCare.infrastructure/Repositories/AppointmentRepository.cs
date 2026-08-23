@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using MimaCare.Domain.Common;
 using MimaCare.Domain.Entities;
 using MimaCare.Domain.Interfaces;
 using MimaCare.Infrastructure.Context;
@@ -35,43 +36,96 @@ namespace MimaCare.Infrastructure.Repositories
             return appointment;
         }
 
-        public async Task<IEnumerable<Appointment>> GetAppointmentsByClinicId(Guid clinicId)
+        public async Task<PagedResult<Appointment>> GetAppointmentsByClinicId(Guid clinicId, int page, int pageSize)
         {
-            var res = await _context.Appointments
+            var query = _context.Appointments
                 .Include(a => a.Clinic)
                 .Include(a => a.Patient)
                 .Include(a => a.Doctor)
                 .ThenInclude(d => d.User)
-                .Where(a => a.ClinicId == clinicId)
+                .Where(a => a.ClinicId == clinicId);
+
+            var totalCount = await query.CountAsync();
+
+            var items = await query
+                .OrderByDescending(a => a.AppointmentDate)
+                .ThenBy(a => a.StartTime)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
                 .ToListAsync();
 
-            return res;
+            return new PagedResult<Appointment>
+            {
+                Items = items,
+                Page = page,
+                PageSize = pageSize,
+                TotalCount = totalCount
+            };
         }
 
         public async Task<IEnumerable<Appointment>> GetAppointmentsByDoctorId(Guid doctorId)
         {
-            var res = await _context.Appointments
+            return await _context.Appointments
                 .Include(a => a.Clinic)
                 .Include(a => a.Patient)
                 .Include(a => a.Doctor)
                 .ThenInclude(d => d.User)
                 .Where(a => a.DoctorId == doctorId)
                 .ToListAsync();
-
-            return res;
         }
 
-        public async Task<IEnumerable<Appointment>> GetAppointmentsByPatientId(Guid patientId)
+        public async Task<PagedResult<Appointment>> GetAppointmentsByDoctorId(Guid doctorId, int page, int pageSize)
         {
-            var res = await _context.Appointments
+            var query = _context.Appointments
                 .Include(a => a.Clinic)
                 .Include(a => a.Patient)
                 .Include(a => a.Doctor)
                 .ThenInclude(d => d.User)
-                .Where(a => a.PatientId == patientId)
+                .Where(a => a.DoctorId == doctorId);
+
+            var totalCount = await query.CountAsync();
+
+            var items = await query
+                .OrderByDescending(a => a.AppointmentDate)
+                .ThenBy(a => a.StartTime)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
                 .ToListAsync();
 
-            return res;
+            return new PagedResult<Appointment>
+            {
+                Items = items,
+                Page = page,
+                PageSize = pageSize,
+                TotalCount = totalCount
+            };
+        }
+
+        public async Task<PagedResult<Appointment>> GetAppointmentsByPatientId(Guid patientId, int page, int pageSize)
+        {
+            var query = _context.Appointments
+                .Include(a => a.Clinic)
+                .Include(a => a.Patient)
+                .Include(a => a.Doctor)
+                .ThenInclude(d => d.User)
+                .Where(a => a.PatientId == patientId);
+
+            var totalCount = await query.CountAsync();
+
+            var items = await query
+                .OrderByDescending(a => a.AppointmentDate)
+                .ThenBy(a => a.StartTime)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return new PagedResult<Appointment>
+            {
+                Items = items,
+                Page = page,
+                PageSize = pageSize,
+                TotalCount = totalCount
+            };
         }
     }
 }

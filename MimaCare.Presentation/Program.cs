@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using MimaCare.Application.Common;
 using MimaCare.Application.Interface;
 using MimaCare.Application.Mappers;
 using MimaCare.Application.Services;
@@ -15,6 +16,7 @@ using MimaCare.Infrastructure.Repositories;
 using MimaCare.Infrastructure.Repositories.Abstraction;
 using MimaCare.Infrastructure.Seed;
 using Scalar.AspNetCore;
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using Npgsql;
@@ -91,8 +93,49 @@ builder.Services
 
                 RoleClaimType = ClaimTypes.Role
             };
+
+        // Reject JWTs revoked through the logout endpoint.
+        options.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = async context =>
+            {
+                var principal = context.Principal;
+
+                if (principal == null)
+                {
+                    return;
+                }
+
+                var jti =
+                    principal.FindFirst(JwtRegisteredClaimNames.Jti)?.Value
+                    ?? principal.FindFirst(ClaimTypes.SerialNumber)?.Value;
+
+                if (string.IsNullOrEmpty(jti))
+                {
+                    // Legacy token issued before revocation support.
+                    return;
+                }
+
+                var revokedTokens = context.HttpContext.RequestServices
+                    .GetRequiredService<IRevokedTokenRepository>();
+
+                if (await revokedTokens.IsRevokedAsync(jti))
+                {
+                    context.Fail("Token has been revoked.");
+                }
+            }
+        };
     });
 builder.Services.AddAuthorization();
+
+
+// PASSWORD RESET OPTIONS
+
+builder.Services.Configure<PasswordResetOptions>(options =>
+{
+    // No email provider is configured: expose reset tokens in Development only.
+    options.ExposeResetToken = builder.Environment.IsDevelopment();
+});
 
 
 // MAPSTER
@@ -142,6 +185,8 @@ builder.Services.AddScoped<IAppointmentRepository, AppointmentRepository>();
 builder.Services.AddScoped<IDoctorScheduleRepository, DoctorScheduleRepository>();
 
 builder.Services.AddScoped<ISpecialtyRepository, SpecialtyRepository>();
+
+builder.Services.AddScoped<IRevokedTokenRepository, RevokedTokenRepository>();
 
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
