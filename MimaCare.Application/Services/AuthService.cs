@@ -177,6 +177,12 @@ public class AuthService : IAuthService
                 "Invalid email or password.");
         }
 
+        if (!user.IsActive)
+        {
+            throw new UnauthorizedException(
+                "Esta cuenta está inactiva. Contacte a su clínica.");
+        }
+
         var result = await _signInManager
             .CheckPasswordSignInAsync(
                 user,

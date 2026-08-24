@@ -267,6 +267,17 @@ public class DoctorService : IDoctorService
                             x.Description)));
         }
 
+        // A previously locked-out doctor could never log in
+        // even with the new password; clear that state too.
+        if (doctor.User.AccessFailedCount > 0 ||
+            doctor.User.LockoutEnd != null)
+        {
+            doctor.User.AccessFailedCount = 0;
+            doctor.User.LockoutEnd = null;
+
+            await _userManager.UpdateAsync(doctor.User);
+        }
+
         return "Contraseña restablecida correctamente. La nueva contraseña es 123456.";
     }
 

@@ -67,8 +67,13 @@ namespace MimaCare.Application.Services
                 throw new ForbiddenException("You do not have permission to create appointments.");
             }
 
-            // Validate doctor belongs to clinic
-            var doctorEntity = await _doctorRepository.GetDoctorById(doctorId);
+            // Validate doctor belongs to clinic.
+            // Doctors act on their own profile via the JWT user id;
+            // clinics pass the doctor entity id in the DTO.
+            var doctorEntity = roles.Contains(Roles.Doctor)
+                ? await _doctorRepository.GetDoctorByUserId(Guid.Parse(userId!))
+                : await _doctorRepository.GetDoctorById(doctorId);
+
             if (doctorEntity == null || doctorEntity.ClinicId != clinicId)
                 throw new NotFoundException("Doctor not found in this clinic.");
 
@@ -125,7 +130,7 @@ namespace MimaCare.Application.Services
 
             if (roles.Contains(Roles.Doctor))
             {
-                var doctor = await _doctorRepository.GetDoctorById(Guid.Parse(userId!));
+                var doctor = await _doctorRepository.GetDoctorByUserId(Guid.Parse(userId!));
                 if (doctor == null)
                     throw new UnauthorizedException("Doctor profile not found.");
                 var appointments = await _appointmentRepository.GetAppointmentsByDoctorId(
@@ -177,7 +182,7 @@ namespace MimaCare.Application.Services
             if (roles.Contains(Roles.Doctor))
             {
                 var userId = GetUserId();
-                var doctor = await _doctorRepository.GetDoctorById(Guid.Parse(userId!));
+                var doctor = await _doctorRepository.GetDoctorByUserId(Guid.Parse(userId!));
                 if (doctor == null || appointment.DoctorId != doctor.Id)
                     throw new ForbiddenException("You can only update your own appointments.");
             }
@@ -200,7 +205,7 @@ namespace MimaCare.Application.Services
             if (roles.Contains(Roles.Doctor))
             {
                 var userId = GetUserId();
-                var doctor = await _doctorRepository.GetDoctorById(Guid.Parse(userId!));
+                var doctor = await _doctorRepository.GetDoctorByUserId(Guid.Parse(userId!));
                 if (doctor == null || appointment.DoctorId != doctor.Id)
                     throw new ForbiddenException("You can only edit your own appointments.");
             }

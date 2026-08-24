@@ -16,7 +16,7 @@ namespace MimaCare.Application.Mappers
 
                 .Map(
                     dest => dest.Id,
-                    src => src.UserId)
+                    src => src.Id)
 
                 .Map(
                     dest => dest.FullName,

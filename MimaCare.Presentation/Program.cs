@@ -269,7 +269,8 @@ if (app.Environment.IsDevelopment())
 
 // MIDDLEWARE
 
-app.UseHttpsRedirection();
+// NOTE: UseHttpsRedirection() was removed: the 307 redirect to the HTTPS port
+// makes clients drop the Authorization header and fail with 401 on HTTP.
 
 app.UseExceptionMiddleware();
 

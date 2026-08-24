@@ -12,6 +12,8 @@ namespace MimaCare.Domain.Interfaces
 
         Task<Doctor?> GetDoctorById(Guid doctorId);
 
+        Task<Doctor?> GetDoctorByUserId(Guid userId);
+
         Task<PagedResult<Doctor>> GetDoctors(Guid clinicId, int page, int pageSize, string? search = null);
 
         Task UpdateDoctor(Doctor doctor);

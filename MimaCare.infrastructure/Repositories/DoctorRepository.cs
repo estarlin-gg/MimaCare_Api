@@ -26,12 +26,20 @@ namespace MimaCare.Infrastructure.Repositories
 
         public async Task<Doctor?> GetDoctorById(Guid doctorId)
         {
-            //var doctor = await _repository.GetByIdAsync(doctorId);
-
             var doctor = await _mimaCareContext.Doctors
                 .Include(u => u.User)
                 .ThenInclude(c => c.Clinic)
-                .FirstOrDefaultAsync(d => d.UserId == doctorId);
+                .FirstOrDefaultAsync(d => d.Id == doctorId);
+
+            return doctor;
+        }
+
+        public async Task<Doctor?> GetDoctorByUserId(Guid userId)
+        {
+            var doctor = await _mimaCareContext.Doctors
+                .Include(u => u.User)
+                .ThenInclude(c => c.Clinic)
+                .FirstOrDefaultAsync(d => d.UserId == userId);
 
             return doctor;
         }
