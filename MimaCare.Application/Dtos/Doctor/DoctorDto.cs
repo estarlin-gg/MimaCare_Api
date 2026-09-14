@@ -25,5 +25,8 @@ namespace MimaCare.Application.Dtos.Doctor
         public string Email { get;  set; }
 
         public string PhoneNumber { get; set; }
+
+        public List<MimaCare.Application.Dtos.Branch.BranchDto> Branches { get; set; }
+            = new List<MimaCare.Application.Dtos.Branch.BranchDto>();
     }
 }

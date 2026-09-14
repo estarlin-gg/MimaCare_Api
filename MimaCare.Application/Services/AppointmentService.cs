@@ -20,6 +20,8 @@ namespace MimaCare.Application.Services
         private readonly IDoctorRepository _doctorRepository;
         private readonly IPatientRepository _patientRepository;
         private readonly IDoctorScheduleRepository _scheduleRepository;
+        private readonly IBranchRepository _branchRepository;
+        private readonly IDoctorBranchRepository _doctorBranchRepository;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly IUnitOfWork _unitOfWork;
 
@@ -28,6 +30,8 @@ namespace MimaCare.Application.Services
             IDoctorRepository doctorRepository,
             IPatientRepository patientRepository,
             IDoctorScheduleRepository scheduleRepository,
+            IBranchRepository branchRepository,
+            IDoctorBranchRepository doctorBranchRepository,
             IHttpContextAccessor httpContextAccessor,
             IUnitOfWork unitOfWork)
         {
@@ -35,6 +39,8 @@ namespace MimaCare.Application.Services
             _doctorRepository = doctorRepository;
             _patientRepository = patientRepository;
             _scheduleRepository = scheduleRepository;
+            _branchRepository = branchRepository;
+            _doctorBranchRepository = doctorBranchRepository;
             _httpContextAccessor = httpContextAccessor;
             _unitOfWork = unitOfWork;
         }
@@ -77,6 +83,11 @@ namespace MimaCare.Application.Services
             if (doctorEntity == null || doctorEntity.ClinicId != clinicId)
                 throw new NotFoundException("Doctor not found in this clinic.");
 
+            // Validate branch belongs to clinic and the doctor works there.
+            var branch = await GetBranchInClinicAsync(dto.BranchId, clinicId);
+            if (!await _doctorBranchRepository.DoctorWorksInBranchAsync(doctorEntity.Id, branch.Id))
+                throw new ForbiddenException("El doctor no trabaja en la sucursal seleccionada.");
+
             // Validate schedule if exists (open schedule = no restriction)
             await ValidateSchedule(doctorEntity.Id, dto.AppointmentDate, dto.StartTime, dto.EndTime);
 
@@ -96,6 +107,8 @@ namespace MimaCare.Application.Services
             appointment.ClinicId = clinicId;
             appointment.DoctorId = doctorEntity.Id;
             appointment.Status = AppointmentStatus.Pending;
+            appointment.BranchId = branch.Id;
+            appointment.CreatedBranchId = dto.CreatedBranchId ?? branch.Id;
 
             await _appointmentRepository.CreateAppointment(appointment);
             await _unitOfWork.CommitAsync();
@@ -257,6 +270,11 @@ namespace MimaCare.Application.Services
             if (doctor == null || doctor.ClinicId != clinicId)
                 throw new NotFoundException("Doctor not found in this clinic.");
 
+            // The assigned doctor must work in the appointment's branch.
+            if (appointment.BranchId != null &&
+                !await _doctorBranchRepository.DoctorWorksInBranchAsync(doctor.Id, appointment.BranchId.Value))
+                throw new ForbiddenException("El doctor no trabaja en la sucursal de la cita.");
+
             // Validate schedule if exists
             await ValidateSchedule(doctor.Id, appointment.AppointmentDate,
                 appointment.StartTime ?? TimeOnly.MinValue, appointment.EndTime ?? TimeOnly.MinValue);
@@ -271,6 +289,14 @@ namespace MimaCare.Application.Services
         {
             var appointment = await _appointmentRepository.GetAppointmentById(id);
             return appointment.Adapt<AppointmentDto>();
+        }
+
+        private async Task<Domain.Entities.Branch> GetBranchInClinicAsync(Guid branchId, Guid clinicId)
+        {
+            var branch = await _branchRepository.GetByIdAsync(branchId);
+            if (branch == null || branch.ClinicId != clinicId)
+                throw new NotFoundException("Branch not found in this clinic.");
+            return branch;
         }
 
         private async Task ValidateSchedule(Guid doctorId, DateOnly date, TimeOnly startTime, TimeOnly endTime)

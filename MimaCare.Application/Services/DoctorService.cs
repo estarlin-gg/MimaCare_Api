@@ -30,6 +30,9 @@ public class DoctorService : IDoctorService
         _unitOfWork;
     private readonly IUserService _userService;
     private readonly ISpecialtyRepository _specialtyRepository;
+    private readonly IClinicRepository _clinicRepository;
+    private readonly IBranchRepository _branchRepository;
+    private readonly IDoctorBranchRepository _doctorBranchRepository;
 
     public DoctorService(
         UserManager<ApplicationUser> userManager,
@@ -37,7 +40,10 @@ public class DoctorService : IDoctorService
         IUnitOfWork unitOfWork,
         IUserService userService,
         IHttpContextAccessor httpContextAccessor,
-        ISpecialtyRepository specialtyRepository)
+        ISpecialtyRepository specialtyRepository,
+        IClinicRepository clinicRepository,
+        IBranchRepository branchRepository,
+        IDoctorBranchRepository doctorBranchRepository)
     {
         _userManager = userManager;
 
@@ -48,6 +54,9 @@ public class DoctorService : IDoctorService
         _unitOfWork = unitOfWork;
         _userService = userService;
         _specialtyRepository = specialtyRepository;
+        _clinicRepository = clinicRepository;
+        _branchRepository = branchRepository;
+        _doctorBranchRepository = doctorBranchRepository;
     }
 
     public async Task<string> CreateDoctor(
@@ -95,6 +104,36 @@ public class DoctorService : IDoctorService
                             Role = Roles.Doctor
                         });
 
+            // Plan limits: every clinic must have a plan, and doctor count
+            // must respect the plan's MaxDoctors limit (null = unlimited).
+            var clinic = await _clinicRepository.GetByIdWithPlanAsync(clinicId);
+            if (clinic?.Plan == null)
+                throw new ForbiddenException("La clínica no tiene un plan de suscripción asignado.");
+
+            if (clinic.Plan.MaxDoctors != null)
+            {
+                var currentDoctors = await _doctorRepository.CountByClinicAsync(clinicId);
+                if (currentDoctors >= clinic.Plan.MaxDoctors.Value)
+                {
+                    throw new ForbiddenException(
+                        $"Tu plan {clinic.Plan.Name} permite hasta {clinic.Plan.MaxDoctors.Value} doctores. " +
+                        "Mejora tu plan para agregar más.");
+                }
+            }
+
+            // Optional: assign the doctor to one or more branches at creation.
+            if (dto.BranchIds != null && dto.BranchIds.Any())
+            {
+                var branchIds = dto.BranchIds.Distinct().ToList();
+                var validIds = (await _branchRepository.GetByClinicAsync(clinicId))
+                    .Select(b => b.Id)
+                    .ToHashSet();
+
+                var invalid = branchIds.Where(id => !validIds.Contains(id)).ToList();
+                if (invalid.Any())
+                    throw new BadRequestException("Una o más sucursales no pertenecen a la clínica.");
+            }
+
             var doctor =
                 dto.Adapt<Doctor>();
 
@@ -104,6 +143,18 @@ public class DoctorService : IDoctorService
 
             await _doctorRepository
                 .CreateDoctor(doctor);
+
+            if (dto.BranchIds != null && dto.BranchIds.Any())
+            {
+                foreach (var branchId in dto.BranchIds.Distinct())
+                {
+                    await _doctorBranchRepository.CreateAsync(new DoctorBranch
+                    {
+                        DoctorId = doctor.Id,
+                        BranchId = branchId
+                    });
+                }
+            }
 
             await _unitOfWork
                 .CommitAsync();

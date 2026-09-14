@@ -23,5 +23,12 @@ namespace MimaCare.Infrastructure.Repositories
         {
             return await _context.Clinics.FindAsync(id);
         }
+
+        public async Task<Clinic?> GetByIdWithPlanAsync(Guid id)
+        {
+            return await _context.Clinics
+                .Include(c => c.Plan)
+                .FirstOrDefaultAsync(c => c.Id == id);
+        }
     }
 }

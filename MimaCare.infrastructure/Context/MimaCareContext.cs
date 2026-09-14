@@ -29,6 +29,12 @@ namespace MimaCare.Infrastructure.Context
 
         public DbSet<RevokedToken> RevokedTokens { get; set; }
 
+        public DbSet<SubscriptionPlan> SubscriptionPlans { get; set; }
+
+        public DbSet<Branch> Branches { get; set; }
+
+        public DbSet<DoctorBranch> DoctorBranches { get; set; }
+
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
@@ -39,6 +45,14 @@ namespace MimaCare.Infrastructure.Context
                 .HasOne(x => x.Clinic)
                 .WithMany(x => x.Users)
                 .HasForeignKey(x => x.ClinicId);
+
+            // Clinic -> SubscriptionPlan
+
+            builder.Entity<Clinic>()
+                .HasOne(x => x.Plan)
+                .WithMany(x => x.Clinics)
+                .HasForeignKey(x => x.PlanId)
+                .IsRequired(false);
 
             // Doctor
 
@@ -100,6 +114,42 @@ namespace MimaCare.Infrastructure.Context
                 .Property(x => x.DayOfWeek)
                 .HasConversion<int>();
 
+            // Branch
+
+            builder.Entity<Branch>()
+                .HasOne(x => x.Clinic)
+                .WithMany(x => x.Branches)
+                .HasForeignKey(x => x.ClinicId);
+
+            // DoctorBranch (many-to-many doctor <-> branch)
+            builder.Entity<DoctorBranch>()
+                .HasKey(x => new { x.DoctorId, x.BranchId });
+
+            builder.Entity<DoctorBranch>()
+                .HasOne(x => x.Doctor)
+                .WithMany(x => x.DoctorBranches)
+                .HasForeignKey(x => x.DoctorId);
+
+            builder.Entity<DoctorBranch>()
+                .HasOne(x => x.Branch)
+                .WithMany(x => x.DoctorBranches)
+                .HasForeignKey(x => x.BranchId);
+
+            // Appointment -> Branch (attended) and CreatedBranch (created)
+            builder.Entity<Appointment>()
+                .HasOne(x => x.Branch)
+                .WithMany(x => x.AttendedAppointments)
+                .HasForeignKey(x => x.BranchId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder.Entity<Appointment>()
+                .HasOne(x => x.CreatedBranch)
+                .WithMany(x => x.CreatedAppointments)
+                .HasForeignKey(x => x.CreatedBranchId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.Restrict);
+
             // DoctorSpecialty (many-to-many)
             builder.Entity<DoctorSpecialty>()
                 .HasKey(x => new { x.DoctorId, x.SpecialtyId });
@@ -118,6 +168,40 @@ namespace MimaCare.Infrastructure.Context
             builder.Entity<RevokedToken>()
                 .HasIndex(x => x.Jti)
                 .IsUnique();
+
+            // Subscription plans (fixed ids so seeder/registration stay idempotent)
+            builder.Entity<SubscriptionPlan>().HasData(
+                new SubscriptionPlan
+                {
+                    Id = new Guid("c3a00000-0000-4000-8000-000000000001"),
+                    Name = "Básico",
+                    Description = "1 sucursal y hasta 3 doctores, citas ilimitadas.",
+                    MaxBranches = 1,
+                    MaxDoctors = 3,
+                    AllowsUnlimitedAppointments = true,
+                    CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+                },
+                new SubscriptionPlan
+                {
+                    Id = new Guid("c3a00000-0000-4000-8000-000000000002"),
+                    Name = "Profesional",
+                    Description = "Hasta 3 sucursales y doctores ilimitados, citas ilimitadas.",
+                    MaxBranches = 3,
+                    MaxDoctors = null,
+                    AllowsUnlimitedAppointments = true,
+                    CreatedAt = new DateTime(2025, 1, 1, 0, 0, 1, DateTimeKind.Utc)
+                },
+                new SubscriptionPlan
+                {
+                    Id = new Guid("c3a00000-0000-4000-8000-000000000003"),
+                    Name = "Enterprise",
+                    Description = "Sucursales y doctores ilimitados, citas ilimitadas, soporte custom.",
+                    MaxBranches = null,
+                    MaxDoctors = null,
+                    AllowsUnlimitedAppointments = true,
+                    CreatedAt = new DateTime(2025, 1, 1, 0, 0, 2, DateTimeKind.Utc)
+                }
+            );
         }
     }
 }

@@ -16,6 +16,8 @@ namespace MimaCare.Domain.Interfaces
 
         Task<PagedResult<Doctor>> GetDoctors(Guid clinicId, int page, int pageSize, string? search = null);
 
+        Task<int> CountByClinicAsync(Guid clinicId);
+
         Task UpdateDoctor(Doctor doctor);
 
         Task DeleteDoctor(Doctor doctor);

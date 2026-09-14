@@ -24,5 +24,9 @@ namespace MimaCare.Application.Dtos.Doctor
             = default!;
 
         public string? LicenseNumber { get; set; }
+
+        // Branches/sucursales where the doctor will work.
+        // Optional: the doctor can be assigned to branches later.
+        public List<Guid>? BranchIds { get; set; }
     }
 }

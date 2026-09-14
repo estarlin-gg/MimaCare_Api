@@ -17,5 +17,12 @@ namespace MimaCare.Application.Dtos.Appointment
         public TimeOnly EndTime { get; set; }
 
         public string? Notes { get; set; }
+
+        // Branch where the patient will be attended.
+        public Guid BranchId { get; set; }
+
+        // Optional: branch where the appointment was created.
+        // Defaults to BranchId when not provided.
+        public Guid? CreatedBranchId { get; set; }
     }
 }

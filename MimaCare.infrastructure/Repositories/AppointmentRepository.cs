@@ -31,6 +31,8 @@ namespace MimaCare.Infrastructure.Repositories
                 .Include(a => a.Patient)
                 .Include(a => a.Doctor)
                 .ThenInclude(d => d.User)
+                .Include(a => a.Branch)
+                .Include(a => a.CreatedBranch)
                 .FirstOrDefaultAsync(a => a.Id == id);
 
             return appointment;
@@ -43,6 +45,8 @@ namespace MimaCare.Infrastructure.Repositories
                 .Include(a => a.Patient)
                 .Include(a => a.Doctor)
                 .ThenInclude(d => d.User)
+                .Include(a => a.Branch)
+                .Include(a => a.CreatedBranch)
                 .Where(a => a.ClinicId == clinicId);
 
             var totalCount = await query.CountAsync();
@@ -70,6 +74,8 @@ namespace MimaCare.Infrastructure.Repositories
                 .Include(a => a.Patient)
                 .Include(a => a.Doctor)
                 .ThenInclude(d => d.User)
+                .Include(a => a.Branch)
+                .Include(a => a.CreatedBranch)
                 .Where(a => a.DoctorId == doctorId)
                 .ToListAsync();
         }
@@ -81,6 +87,8 @@ namespace MimaCare.Infrastructure.Repositories
                 .Include(a => a.Patient)
                 .Include(a => a.Doctor)
                 .ThenInclude(d => d.User)
+                .Include(a => a.Branch)
+                .Include(a => a.CreatedBranch)
                 .Where(a => a.DoctorId == doctorId);
 
             var totalCount = await query.CountAsync();
@@ -108,6 +116,8 @@ namespace MimaCare.Infrastructure.Repositories
                 .Include(a => a.Patient)
                 .Include(a => a.Doctor)
                 .ThenInclude(d => d.User)
+                .Include(a => a.Branch)
+                .Include(a => a.CreatedBranch)
                 .Where(a => a.PatientId == patientId);
 
             var totalCount = await query.CountAsync();

@@ -33,6 +33,16 @@ namespace MimaCare.Domain.Entities
 
         public string? Notes { get; set; }
 
+        // Branch where the patient is (or was) attended.
+        public Guid? BranchId { get; set; }
+
+        public Branch? Branch { get; set; }
+
+        // Branch where the appointment was created.
+        public Guid? CreatedBranchId { get; set; }
+
+        public Branch? CreatedBranch { get; set; }
+
         public DateTime CreatedAt { get; set; }
             = DateTime.UtcNow;
     }

@@ -25,6 +25,14 @@ namespace MimaCare.Application.Dtos.Appointment
         public string DoctorName { get; set; }
             = default!;
 
+        public Guid? BranchId { get; set; }
+
+        public string? BranchName { get; set; }
+
+        public Guid? CreatedBranchId { get; set; }
+
+        public string? CreatedBranchName { get; set; }
+
         public DateOnly AppointmentDate { get; set; }
 
         public TimeOnly? StartTime { get; set; }

@@ -25,6 +25,9 @@ namespace MimaCare.Application.Validators.Appointment
 
             RuleFor(x => x.Notes)
                 .MaximumLength(500).WithMessage("Notes must not exceed 500 characters.");
+
+            RuleFor(x => x.BranchId)
+                .NotEmpty().WithMessage("Branch is required.");
         }
     }
 }

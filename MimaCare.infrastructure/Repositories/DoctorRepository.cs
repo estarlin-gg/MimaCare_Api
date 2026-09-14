@@ -29,6 +29,8 @@ namespace MimaCare.Infrastructure.Repositories
             var doctor = await _mimaCareContext.Doctors
                 .Include(u => u.User)
                 .ThenInclude(c => c.Clinic)
+                .Include(d => d.DoctorBranches)
+                .ThenInclude(db => db.Branch)
                 .FirstOrDefaultAsync(d => d.Id == doctorId);
 
             return doctor;
@@ -39,6 +41,8 @@ namespace MimaCare.Infrastructure.Repositories
             var doctor = await _mimaCareContext.Doctors
                 .Include(u => u.User)
                 .ThenInclude(c => c.Clinic)
+                .Include(d => d.DoctorBranches)
+                .ThenInclude(db => db.Branch)
                 .FirstOrDefaultAsync(d => d.UserId == userId);
 
             return doctor;
@@ -49,6 +53,8 @@ namespace MimaCare.Infrastructure.Repositories
             var query = _mimaCareContext.Doctors
                .Include(u => u.User)
                .ThenInclude(c => c.Clinic)
+               .Include(d => d.DoctorBranches)
+               .ThenInclude(db => db.Branch)
                .Where(d => d.ClinicId == clinicId);
 
             if (!string.IsNullOrWhiteSpace(search))
@@ -79,6 +85,12 @@ namespace MimaCare.Infrastructure.Repositories
                 PageSize = pageSize,
                 TotalCount = totalCount
             };
+        }
+
+        public async Task<int> CountByClinicAsync(Guid clinicId)
+        {
+            return await _mimaCareContext.Doctors
+                .CountAsync(d => d.ClinicId == clinicId);
         }
 
         public async Task UpdateDoctor(Doctor doctor)

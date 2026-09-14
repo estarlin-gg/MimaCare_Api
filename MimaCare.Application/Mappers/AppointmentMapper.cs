@@ -13,7 +13,9 @@ namespace MimaCare.Application.Mappers
                 .Map(dest => dest.DoctorId, src => src.Doctor.UserId)
                 .Map(dest => dest.ClinicName, src => src.Clinic.Name)
                 .Map(dest => dest.PatientName, src => $"{src.Patient.FirstName} {src.Patient.LastName}")
-                .Map(dest => dest.DoctorName, src => $"{src.Doctor.User.FirstName} {src.Doctor.User.LastName}");
+                .Map(dest => dest.DoctorName, src => $"{src.Doctor.User.FirstName} {src.Doctor.User.LastName}")
+                .Map(dest => dest.BranchName, src => src.Branch == null ? null : src.Branch.Name)
+                .Map(dest => dest.CreatedBranchName, src => src.CreatedBranch == null ? null : src.CreatedBranch.Name);
 
             config.NewConfig<CreateAppointmentDto, Appointment>()
                 .Map(dest => dest.Status, src => AppointmentStatus.Pending)

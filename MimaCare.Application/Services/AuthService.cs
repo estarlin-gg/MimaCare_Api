@@ -41,6 +41,12 @@ public class AuthService : IAuthService
     private readonly IRevokedTokenRepository
         _revokedTokenRepository;
 
+    private readonly ISubscriptionPlanRepository
+        _subscriptionPlanRepository;
+
+    private readonly IBranchRepository
+        _branchRepository;
+
     private readonly IOptions<PasswordResetOptions>
         _passwordResetOptions;
 
@@ -52,6 +58,8 @@ public class AuthService : IAuthService
         IUnitOfWork unitOfWork,
         IHttpContextAccessor httpContextAccessor,
         IRevokedTokenRepository revokedTokenRepository,
+        ISubscriptionPlanRepository subscriptionPlanRepository,
+        IBranchRepository branchRepository,
         IOptions<PasswordResetOptions> passwordResetOptions)
     {
         _userManager = userManager;
@@ -67,6 +75,10 @@ public class AuthService : IAuthService
         _httpContextAccessor = httpContextAccessor;
 
         _revokedTokenRepository = revokedTokenRepository;
+
+        _subscriptionPlanRepository = subscriptionPlanRepository;
+
+        _branchRepository = branchRepository;
 
         _passwordResetOptions = passwordResetOptions;
     }
@@ -95,8 +107,22 @@ public class AuthService : IAuthService
 
             var clinic = dto.Adapt<Clinic>();
 
+            // Every clinic must have a subscription plan (default: Básico).
+            var defaultPlan = await GetDefaultPlanAsync();
+            clinic.PlanId = defaultPlan?.Id;
+
             await _clinicRepository
                 .CreateClinic(clinic);
+
+            // Create the default branch so the clinic can operate immediately.
+            await _branchRepository
+                .CreateAsync(new Branch
+                {
+                    Id = Guid.NewGuid(),
+                    ClinicId = clinic.Id,
+                    Name = "Sucursal Principal",
+                    IsActive = true
+                });
 
   
             var user = dto
@@ -447,6 +473,13 @@ public class AuthService : IAuthService
         if (string.IsNullOrEmpty(claim) || !Guid.TryParse(claim, out var clinicId))
             throw new UnauthorizedException("Clinic not found.");
         return clinicId;
+    }
+
+    private async Task<SubscriptionPlan?> GetDefaultPlanAsync()
+    {
+        // Prefer the standard plan by name, fall back to the fixed Basic id.
+        return await _subscriptionPlanRepository.GetByNameAsync("Básico")
+            ?? await _subscriptionPlanRepository.GetByIdAsync(new Guid("c3a00000-0000-4000-8000-000000000001"));
     }
 
     private List<string> GetUserRoles()

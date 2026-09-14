@@ -1,6 +1,7 @@
 ﻿using Mapster;
 using MimaCare.Application.Dtos.Doctor;
 using MimaCare.Domain.Entities;
+using System.Linq;
 
 namespace MimaCare.Application.Mappers
 {
@@ -48,7 +49,22 @@ namespace MimaCare.Application.Mappers
 
                 .Map(
                     dest => dest.ClinicName,
-                    src => src.Clinic.Name);
+                    src => src.Clinic.Name)
+
+                .Map(
+                    dest => dest.Branches,
+                    src => src.DoctorBranches
+                        .Select(x => new MimaCare.Application.Dtos.Branch.BranchDto
+                        {
+                            Id = x.Branch.Id,
+                            ClinicId = x.Branch.ClinicId,
+                            Name = x.Branch.Name,
+                            Address = x.Branch.Address,
+                            Phone = x.Branch.Phone,
+                            IsActive = x.Branch.IsActive,
+                            CreatedAt = x.Branch.CreatedAt
+                        })
+                        .ToList());
 
 
             // CREATE DTO -> USER

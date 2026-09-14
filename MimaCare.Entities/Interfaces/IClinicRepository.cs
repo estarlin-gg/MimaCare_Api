@@ -7,5 +7,7 @@ namespace MimaCare.Infrastructure.Repositories.Abstraction
         Task CreateClinic(Clinic clinic);
 
         Task<Clinic?> GetByIdAsync(Guid id);
+
+        Task<Clinic?> GetByIdWithPlanAsync(Guid id);
     }
 }

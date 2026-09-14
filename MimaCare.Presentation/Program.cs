@@ -171,6 +171,10 @@ builder.Services.AddScoped<ISpecialtyService, SpecialtyService>();
 
 builder.Services.AddScoped<IUserService, UserService>();
 
+builder.Services.AddScoped<ISubscriptionPlanService, SubscriptionPlanService>();
+
+builder.Services.AddScoped<IBranchService, BranchService>();
+
 
 // REPOSITORIES
 
@@ -187,6 +191,12 @@ builder.Services.AddScoped<IDoctorScheduleRepository, DoctorScheduleRepository>(
 builder.Services.AddScoped<ISpecialtyRepository, SpecialtyRepository>();
 
 builder.Services.AddScoped<IRevokedTokenRepository, RevokedTokenRepository>();
+
+builder.Services.AddScoped<ISubscriptionPlanRepository, SubscriptionPlanRepository>();
+
+builder.Services.AddScoped<IBranchRepository, BranchRepository>();
+
+builder.Services.AddScoped<IDoctorBranchRepository, DoctorBranchRepository>();
 
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
@@ -254,6 +264,14 @@ using (var scope = app.Services.CreateScope())
         .GetRequiredService<MimaCareContext>();
 
     await SpecialtySeeder.SeedAsync(context);
+}
+
+using (var scope = app.Services.CreateScope())
+{
+    var context = scope.ServiceProvider
+        .GetRequiredService<MimaCareContext>();
+
+    await SubscriptionPlanSeeder.SeedAsync(context);
 }
 
 

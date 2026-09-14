@@ -11,6 +11,9 @@ Backend de **MimaCare**, un sistema para clínicas odontológicas que permite ge
 ## Características principales
 
 - **Multi-clínica con aislamiento de datos**: cada clínica registrada administra sus propios doctores, pacientes, citas y horarios. Un usuario solo puede operar sobre los datos de la clínica a la que pertenece (aislamiento por claim `clinicId` en el JWT).
+- **Planes de suscripción por clínica**: toda clínica tiene un plan obligatorio (`Básico`, `Profesional`, `Enterprise`, o planes custom creados por `Super`). Los límites se aplican sobre sucursales y doctores; las citas son ilimitadas.
+- **Multi-sucursal**: cada clínica administra sucursales. Las sucursales se limitan según el plan (Básico = 1, Profesional = 3, Enterprise = ilimitadas). Los doctores pueden trabajar en **varias sucursales** (relación N–N).
+- **Citas con sucursal**: cada cita registra la sucursal donde se atiende (`BranchId`) y la sucursal donde se creó (`CreatedBranchId`, por defecto igual a la de atención). Se valida que el doctor trabaje en la sucursal de la cita.
 - **Roles**: `Clinic` (administrador de la clínica), `Doctor` (médico), `Super` (rol global/admin). Los endpoints se protegen por rol.
 - **Autenticación completa**: registro de clínica, login, cambio de contraseña, "olvidé mi contraseña", reset de contraseña (autoservicio y por administración), y **logout con revocación de tokens** (blacklist por `jti`).
 - **Gestión de doctores**: crear (con o sin contraseña; por defecto `123456`), actualizar, eliminar, consultar, resetear contraseña, asignar especialidades y configurar horarios por día de la semana.
@@ -29,9 +32,9 @@ Backend de **MimaCare**, un sistema para clínicas odontológicas que permite ge
 
 | Capa | Proyecto | Carpeta | Responsabilidad |
 |---|---|---|---|
-| **Dominio** | `MimaCare.Domain` | `MimaCare.Entities/` | Entidades (`Clinic`, `Doctor`, `Patient`, `Appointment`, `DoctorSchedule`, `DoctorSpecialty`, `Specialty`, `PatientFile`, `RevokedToken`, `ApplicationUser`), enums (`AppointmentStatus`) e interfaces de repositorios. |
+| **Dominio** | `MimaCare.Domain` | `MimaCare.Entities/` | Entidades (`Clinic`, `SubscriptionPlan`, `Branch`, `Doctor`, `Patient`, `Appointment`, `DoctorSchedule`, `DoctorSpecialty`, `DoctorBranch`, `Specialty`, `PatientFile`, `RevokedToken`, `ApplicationUser`), enums (`AppointmentStatus`) e interfaces de repositorios. |
 | **Aplicación** | `MimaCare.Application` | `MimaCare.Application/` | DTOs, servicios de negocio (`*Service`), validadores FluentValidation (`Validators/`), mapeos Mapster (`Mappers/`) y excepciones de dominio (`Common/Exceptions`). |
-| **Infraestructura** | `MimaCare.Infrastructure` | `MimaCare.infrastructure/` | `MimaCareContext` (DbContext), repositorios EF Core, `UnitOfWork`, migraciones, constantes (`Roles`) y seeders (roles + especialidades). |
+| **Infraestructura** | `MimaCare.Infrastructure` | `MimaCare.infrastructure/` | `MimaCareContext` (DbContext), repositorios EF Core, `UnitOfWork`, migraciones, constantes (`Roles`) y seeders (roles, especialidades, planes/sucursales). |
 | **Presentación** | `MimaCare.Presentation` | `MimaCare.Presentation/` | Controladores (API), middleware de excepciones y `Program.cs` (arranque, DI, JWT, migraciones). |
 
 > Nota: la carpeta `MimaCare.Entities/` contiene el proyecto **`MimaCare.Domain`** (los namespaces usan `MimaCare.Domain.*`), y la carpeta `MimaCare.infrastructure/` contiene el proyecto `MimaCare.Infrastructure`.
@@ -42,7 +45,10 @@ Backend de **MimaCare**, un sistema para clínicas odontológicas que permite ge
 
 Relaciones principales:
 
-- `Clinic` 1—N `ApplicationUser`, `Doctor`, `Patient`, `Appointment`.
+- `Clinic` 1—N `ApplicationUser`, `Doctor`, `Patient`, `Appointment`, `Branch`.
+- `SubscriptionPlan` 1—N `Clinic` (`Clinic.PlanId`); toda clínica tiene plan.
+- `Clinic` 1—N `Branch` (sucursales); `Doctor` N—N `Branch` (tabla puente `DoctorBranch`).
+- `Appointment` → `Branch` (sucursal de **atención**) y → `Branch` (sucursal de **creación**), vía `BranchId` / `CreatedBranchId`; `Patient` puede atenderse en cualquier sucursal de la clínica.
 - `ApplicationUser` (Identity, GUID) 1—1 `Doctor` (por `Doctor.UserId`).
 - `Doctor` N—N `Specialty` (tabla puente `DoctorSpecialty`).
 - `Doctor` 1—N `DoctorSchedule` (bloques por `DayOfWeek` con `StartTime`/`EndTime`).
@@ -53,7 +59,7 @@ Relaciones principales:
 
 ## Autenticación y seguridad
 
-- **Registro** (`register-clinic`): crea la clínica **y** su usuario administrador con rol `Clinic` de forma transaccional.
+- **Registro** (`register-clinic`): crea la clínica **y** su usuario administrador con rol `Clinic` de forma transaccional, además de asignarle el plan **Básico** por defecto y crear su **sucursal principal** inicial.
 - **Login**: valida credenciales (y que la cuenta esté **activa**), emite un JWT con claims `Sub`, `Email`, `NameIdentifier`, `clinicId`, `Jti` y los roles del usuario. Expira a los **2 meses**. Devuelve `{ fullName, clinicName, role, token, message }`.
 - **JWT**: firmado con HMAC-SHA256 usando `Jwt:Key`; valida lifetime sin tolerancia de reloj (`ClockSkew = 0`). No usa HTTPS redirect (se eliminó: el 307 hacía perder el header `Authorization`).
 - **Logout / revocación**: al hacer logout se guarda el `jti` del token en `RevokedTokens`; cada request valida en `OnTokenValidated` que el token no haya sido revocado.
@@ -70,13 +76,14 @@ Relaciones principales:
 
 1. **Crear cita** (`POST api/Appointment`):
    - El paciente **debe** pertenecer a la clínica.
+   - `branchId` es **obligatorio** y debe ser una sucursal de la clínica; el doctor de la cita **debe trabajar en esa sucursal** (relación `DoctorBranch`). `createdBranchId` es opcional (por defecto = `branchId`).
    - Rol `Clinic`/`Super` debe indicar `doctorId`; rol `Doctor` crea la cita sobre su propio perfil (resuelto por `UserId` vía JWT).
    - Se valida el **horario del doctor** si existe: el día de la cita debe ser laboral (por `DayOfWeek`) y la franja debe estar dentro del bloque. Sin horario configurado = "open schedule" (sin restricción).
    - Se rechaza con `409` si el doctor ya tiene una cita **solapada** (misma fecha y franjas que se cruzan), ignorando citas Cancelled/Rejected.
    - La cita nace siempre con estado `Pending`.
 2. **Cambiar estado** (`PUT {id}/status`): un doctor solo puede cambiar el estado de **sus propias** citas.
 3. **Editar cita** (`PUT {id}`): re-valida paciente, horario y solapamiento (excluyendo la cita en curso).
-4. **Asignar doctor** (`PUT {id}/assign-doctor`, solo Clinic/Super): reasigna la cita validando el horario del doctor destino.
+4. **Asignar doctor** (`PUT {id}/assign-doctor`, solo Clinic/Super): reasigna la cita validando el horario del doctor destino y que este trabaje en la sucursal de la cita.
 5. **Consultas**: todas por clínica con paginación; `my` devuelve las citas del doctor autenticado (o las de su clínica si el rol es Clinic/Super).
 
 ---
@@ -132,6 +139,35 @@ Convención: `Bearer` token en el header `Authorization`. Los roles entre parén
 | PUT | `/{id}/assign-doctor` | Clinic, Super | Reasigna doctor |
 | GET | `/by-doctor/{doctorId}` | — | Citas de un doctor (misma clínica) |
 | GET | `/by-patient/{patientId}` | — | Citas de un paciente (misma clínica) |
+
+### Planes de suscripción — `api/SubscriptionPlan`
+
+| Método | Ruta | Acceso | Descripción |
+|---|---|---|---|
+| GET | `/` | Clinic, Super | Catálogo de planes activos |
+| GET | `/my` | Clinic, Super | Plan de mi clínica + uso actual (`plan`, `branchCount`, `doctorCount`, `canCreateBranch`, `canCreateDoctor`) |
+| GET | `/clinic/{clinicId}/usage` | Super | Uso de plan de **cualquier** clínica |
+| POST | `/` | Super | Crea un plan (`maxBranches`/`maxDoctors` nulos = ilimitado) |
+| PUT | `/{planId}` | Super | Actualiza un plan |
+| PUT | `/{clinicId}/assign` | Super | Asigna un plan a una clínica (`{ planId }`) |
+
+### Sucursales — `api/Branch` (Clinic/Super)
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| GET | `/` | Sucursales de mi clínica |
+| POST | `/` | Crea sucursal (valida límite de sucursales según plan) |
+| PUT | `/{branchId}` | Actualiza sucursal |
+| DELETE | `/{branchId}` | Elimina (bloqueado si tiene citas asociadas) |
+
+### Sucursales por doctor — `api/doctors/{doctorId}/branches` (Clinic/Super)
+
+| Método | Descripción |
+|---|---|
+| GET | Sucursales donde trabaja el doctor |
+| PUT | Reemplaza la asignación (`{ branchIds: [uuid…] }`) — valida que pertenezcan a la clínica |
+
+Los planes por defecto: **Básico** (1 sucursal, 3 doctores), **Profesional** (3 sucursales, doctores ilimitados) y **Enterprise** (ilimitado). Al crear un doctor se puede indicar opcionalmente `branchIds` para asignarlo a sus sucursales iniciales.
 
 ### Especialidades — `api/Specialty` (Clinic/Super)
 
@@ -211,6 +247,7 @@ Al arrancar, la aplicación:
 1. Aplica las migraciones pendientes (`Database.MigrateAsync()`). Si la BD ya tiene tablas creadas por otro medio, hay un fallback que marca la migración inicial como aplicada (evita el error `42P07`).
 2. Siembra los roles `Super`, `Clinic` y `Doctor` (`RoleSeeder`).
 3. Siembra el catálogo de **10 especialidades odontológicas** (`SpecialtySeeder`).
+4. `SubscriptionPlanSeeder`: garantiza los 3 planes por defecto, asigna un plan a toda clínica sin plan (y **Enterprise** a la clínica demo `mimacare@gmail.com`), crea una **sucursal por defecto** para clínicas sin sucursales y vincula cada doctor a la sucursal de su clínica. Idempotente.
 
 La API queda en **`http://localhost:5097`** y la documentación en **`http://localhost:5097/scalar`** (Development).
 
@@ -224,6 +261,7 @@ La carpeta `Scripts/` (sin subir al repositorio) contiene:
 
 - `seed_directo.sql` — siembra directa por SQL: especialidades por doctor, horarios, 10 pacientes y 20 citas odontológicas con fechas en días laborables. Idempotente.
 - `seed_via_api.ps1` — misma siembra pero **completamente por API** (flujo real: login → especialidades → doctores → horarios → pacientes → citas → estados → reasignación → edición → login de doctor).
+- `seed_planes.sql` — aplicación de la lógica de `SubscriptionPlanSeeder` por SQL (planes, plan Enterprise para la clínica demo, sucursal por defecto y vinculación de doctores a sucursal). Idempotente.
 - `seed_test_data.sql` — versión anterior de siembra SQL.
 
 ---

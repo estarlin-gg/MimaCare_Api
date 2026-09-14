@@ -24,6 +24,13 @@ namespace MimaCare.Domain.Entities
         public DateTime CreatedAt { get; set; }
             = DateTime.UtcNow;
 
+        // Subscription plan is always required (assigned on registration or seeded).
+        public Guid? PlanId { get; set; }
+
+        public SubscriptionPlan? Plan { get; set; }
+
+        public ICollection<Branch> Branches { get; set; }
+            = new List<Branch>();
 
         public ICollection<ApplicationUser> Users { get; set; }
             = new List<ApplicationUser>();
