@@ -17,5 +17,7 @@ namespace MimaCare.Application.Interface
         Task<string> UpdatePlanAsync(Guid planId, UpdateSubscriptionPlanDto dto);
 
         Task<string> AssignPlanToClinicAsync(Guid clinicId, AssignPlanToClinicDto dto);
+
+        Task<string> AssignMyPlanAsync(AssignPlanToClinicDto dto);
     }
 }

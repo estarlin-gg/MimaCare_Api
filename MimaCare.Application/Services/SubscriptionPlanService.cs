@@ -110,6 +110,42 @@ namespace MimaCare.Application.Services
             return $"Plan {plan.Name} asignado a la clínica correctamente.";
         }
 
+        public async Task<string> AssignMyPlanAsync(AssignPlanToClinicDto dto)
+        {
+            var clinicId = GetClinicId();
+
+            var clinic = await _clinicRepository.GetByIdAsync(clinicId)
+                ?? throw new NotFoundException("Clinic not found.");
+
+            var plan = await _planRepository.GetByIdAsync(dto.PlanId)
+                ?? throw new NotFoundException("Plan not found.");
+
+            if (!plan.IsActive)
+            {
+                throw new BadRequestException("El plan seleccionado no está disponible.");
+            }
+
+            var branchCount = await _branchRepository.CountByClinicAsync(clinicId);
+            var doctorCount = await _doctorRepository.CountByClinicAsync(clinicId);
+
+            if (plan.MaxBranches != null && branchCount > plan.MaxBranches.Value)
+            {
+                throw new ForbiddenException(
+                    $"No puedes asignar el plan {plan.Name}: tu clínica tiene {branchCount} sucursales y este plan permite máximo {plan.MaxBranches.Value}.");
+            }
+
+            if (plan.MaxDoctors != null && doctorCount > plan.MaxDoctors.Value)
+            {
+                throw new ForbiddenException(
+                    $"No puedes asignar el plan {plan.Name}: tu clínica tiene {doctorCount} doctores y este plan permite máximo {plan.MaxDoctors.Value}.");
+            }
+
+            clinic.PlanId = plan.Id;
+            await _unitOfWork.CommitAsync();
+
+            return $"Plan {plan.Name} asignado correctamente.";
+        }
+
         private async Task<PlanUsageDto> BuildUsageAsync(Guid clinicId)
         {
             var clinic = await _clinicRepository.GetByIdWithPlanAsync(clinicId)

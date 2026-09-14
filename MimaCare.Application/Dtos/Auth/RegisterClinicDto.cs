@@ -15,5 +15,9 @@
         public string? FirstName { get; set; }
 
         public string? LastName { get; set; }
+
+        // Subscription plan chosen at registration. When null, the clinic
+        // is assigned the default plan (Básico).
+        public Guid? PlanId { get; set; }
     }
 }

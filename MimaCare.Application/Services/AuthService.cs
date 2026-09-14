@@ -107,9 +107,10 @@ public class AuthService : IAuthService
 
             var clinic = dto.Adapt<Clinic>();
 
-            // Every clinic must have a subscription plan (default: Básico).
-            var defaultPlan = await GetDefaultPlanAsync();
-            clinic.PlanId = defaultPlan?.Id;
+            // Every clinic must have a subscription plan. Honor the plan
+            // chosen at registration; otherwise default to Básico.
+            var plan = await ResolvePlanAsync(dto.PlanId);
+            clinic.PlanId = plan?.Id;
 
             await _clinicRepository
                 .CreateClinic(clinic);
@@ -480,6 +481,27 @@ public class AuthService : IAuthService
         // Prefer the standard plan by name, fall back to the fixed Basic id.
         return await _subscriptionPlanRepository.GetByNameAsync("Básico")
             ?? await _subscriptionPlanRepository.GetByIdAsync(new Guid("c3a00000-0000-4000-8000-000000000001"));
+    }
+
+    private async Task<SubscriptionPlan?> ResolvePlanAsync(Guid? planId)
+    {
+        if (planId.HasValue && planId != Guid.Empty)
+        {
+            var selected = await _subscriptionPlanRepository.GetByIdAsync(planId.Value);
+            if (selected == null)
+            {
+                throw new NotFoundException("Plan not found.");
+            }
+
+            if (!selected.IsActive)
+            {
+                throw new BadRequestException("El plan seleccionado no está disponible.");
+            }
+
+            return selected;
+        }
+
+        return await GetDefaultPlanAsync();
     }
 
     private List<string> GetUserRoles()

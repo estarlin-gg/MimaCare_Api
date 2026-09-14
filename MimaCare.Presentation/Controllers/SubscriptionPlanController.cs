@@ -25,6 +25,14 @@ namespace MimaCare.Presentation.Controllers
             return Success(plans);
         }
 
+        [HttpGet("public")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetPublicPlans()
+        {
+            var plans = await _subscriptionPlanService.GetAllPlansAsync();
+            return Success(plans);
+        }
+
         [HttpGet("my")]
         public async Task<IActionResult> GetMyPlanUsage()
         {
@@ -61,6 +69,13 @@ namespace MimaCare.Presentation.Controllers
         public async Task<IActionResult> AssignPlanToClinic(Guid clinicId, AssignPlanToClinicDto dto)
         {
             var message = await _subscriptionPlanService.AssignPlanToClinicAsync(clinicId, dto);
+            return Success(message);
+        }
+
+        [HttpPut("my")]
+        public async Task<IActionResult> AssignMyPlan(AssignPlanToClinicDto dto)
+        {
+            var message = await _subscriptionPlanService.AssignMyPlanAsync(dto);
             return Success(message);
         }
     }

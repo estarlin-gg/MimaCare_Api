@@ -5,6 +5,9 @@ using MimaCare.Application.Interface;
 using MimaCare.Domain.Entities;
 using MimaCare.Domain.Interfaces;
 using MimaCare.Infrastructure.Repositories.Abstraction;
+using MimaCare.Infrastructure.Constants;
+using System.Security.Claims;
+using System.Linq;
 
 namespace MimaCare.Application.Services
 {
@@ -36,6 +39,20 @@ namespace MimaCare.Application.Services
         public async Task<IEnumerable<BranchDto>> GetMyBranchesAsync()
         {
             var clinicId = GetClinicId();
+            var roles = _httpContextAccessor.HttpContext?.User
+                .FindAll(ClaimTypes.Role)
+                .Select(c => c.Value)
+                .ToList() ?? new List<string>();
+
+            // Los doctores solo ven las sucursales donde trabajan.
+            if (roles.Contains(Roles.Doctor))
+            {
+                var doctorId = GetUserId();
+                var doctorBranches = await _doctorBranchRepository
+                    .GetBranchesByDoctorAsync(doctorId);
+                return doctorBranches.Select(b => ToDto(b)).ToList();
+            }
+
             var branches = await _branchRepository.GetByClinicAsync(clinicId);
             return branches.Select(b => ToDto(b)).ToList();
         }
@@ -185,6 +202,13 @@ namespace MimaCare.Application.Services
             if (string.IsNullOrEmpty(claim) || !Guid.TryParse(claim, out var clinicId))
                 throw new UnauthorizedException("Clinic not found.");
             return clinicId;
+        }
+
+        private Guid GetUserId()
+        {
+            var claim = _httpContextAccessor.HttpContext?.User
+                ?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            return claim != null ? Guid.Parse(claim) : Guid.Empty;
         }
 
         private static BranchDto ToDto(Branch b)
