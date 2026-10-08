@@ -1,0 +1,40 @@
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: mimacare-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-MimaCare}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      # Credencial sin valor por defecto: siempre viene de .env
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      # Puertp host diferenciado para no chocar con un PostgreSQL local en 5432
+      - "${POSTGRES_PORT_EXTERNO:-5433}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-MimaCare}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mimacare-api
+    restart: unless-stopped
+    ports:
+      - "${API_PORT:-5097}:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
+      # Dentro de la red de compose, PostgreSQL se llama "db"
+      ConnectionStrings__DefaultConnection: Host=${POSTGRES_HOST:-db};Port=${POSTGRES_PORT:-5432};Database=${POSTGRES_DB:-MimaCare};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD}
+      Jwt__Key: ${JWT_KEY}
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:

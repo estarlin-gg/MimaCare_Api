@@ -3,6 +3,14 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/master/VisualStudio.gitignore
 
+# Docker / entorno local: las credenciales viven en .env, nunca en el repo
+.env
+.env.local
+.env.*.local
+
+# Scripts de datos locales (nunca subir)
+Scripts/
+
 # User-specific files
 *.rsuser
 *.suo

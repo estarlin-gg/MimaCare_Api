@@ -1,0 +1,14 @@
+**/bin/
+**/obj/
+**/.vs/
+.git/
+.gitignore
+**/*.user
+**/.DS_Store
+
+# Credenciales y scripts locales nunca entran en la imagen
+.env
+.env.*
+!.env.example
+Scripts/
+*.md

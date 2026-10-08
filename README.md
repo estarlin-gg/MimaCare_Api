@@ -266,6 +266,37 @@ La carpeta `Scripts/` (sin subir al repositorio) contiene:
 
 ---
 
+## Docker
+
+El repositorio incluye `Dockerfile` (multi-stage .NET 10) y `docker-compose.yml` con dos servicios: **`db`** (PostgreSQL 17) y **`api`** (la API, que aplica migraciones y seeders al arrancar).
+
+Las credenciales **no van en el YAML**: el compose interpola variables de entorno de un archivo **`.env`** local.
+
+1. Crear el entorno local desde la plantilla (editar con valores reales):
+
+   ```bash
+   copy .env.example .env
+   ```
+
+   Mínimo: `POSTGRES_PASSWORD` y `JWT_KEY` (clave de firma del JWT, se usa `Jwt__Key` en el contenedor). Si ya tienes PostgreSQL local en el puerto 5432, el contenedor de BDs expone el `5433` (`POSTGRES_PORT_EXTERNO`) para no chocar; los servicios internos se hablan por la red de compose (`db:5432`).
+
+2. Levantar (postgres + API en `http://localhost:5097`, docs en `/scalar`):
+
+   ```bash
+   docker compose up --build -d
+   ```
+
+3. Detener / ver logs:
+
+   ```bash
+   docker compose down
+   docker compose logs -f api
+   ```
+
+> `.env` está en `.gitignore` (nunca se sube); `.env.example` es la plantilla. La API en el contenedor lee `ConnectionStrings__DefaultConnection` y `Jwt__Key` desde el entorno (convención de configuración de ASP.NET, separador `__`), por lo que `appsettings.json` conserva los valores locales de desarrollo.
+
+---
+
 ## Repositorio
 
 - GitHub: `https://github.com/estarlin-gg/MimaCare_Api.git`
