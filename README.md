@@ -234,15 +234,31 @@ La configuración se resuelve por capas (ASP.NET Core: `appsettings.json` → `a
 
 La meta es usar **[Supabase](https://supabase.com)** como base de datos en producción; el de desarrollo/local se mantiene como está (PostgreSQL local o el contenedor de Docker). Como Supabase es PostgreSQL, la API funciona igual: solo cambia la cadena de conexión (y los parámetros de seguridad).
 
-En la plataforma de despliegue (Railway, Render, Azure, etc.) define:
+El entorno ya está preparado: solo hay que pegar las credenciales de Supabase en el bloque `SUPABASE_*` del `.env` (ver `.env.example`):
 
-- `ConnectionStrings__DefaultConnection` — cadena de conexión de Supabase (conexión directa o pooler, puerto 6543 en modo pooler), por ejemplo:
-  `Host=aws-0-xx-xx.supabase.co;Port=5432;Database=postgres;Username=postgres;Password=<db-password>;SSL Mode=Require;Trust Server Certificate=true`
-- `Jwt__Key` — el **JWT Secret** del proyecto Supabase (Configuración → API → JWT Secret). Si en el futuro se autentican usuarios con Supabase Auth, se usará esa misma clave para validar los tokens.
-- (Opcional) `Supabase__Url` y `Supabase__AnonKey` para integrar el SDK de Supabase.
+```
+SUPABASE_DB_HOST=aws-0-xx-xx.pooler.supabase.com   # o db.<ref>.supabase.co
+SUPABASE_DB_PORT=6543                              # pooler (recomendado) o 5432 (direct)
+SUPABASE_DB_NAME=postgres
+SUPABASE_DB_USER=postgres                          # en pooler transaccional: postgres.<project-ref>
+SUPABASE_DB_PASSWORD=<db-password>
+SUPABASE_JWT_SECRET=<jwt-secret>
+```
+
+Y arrancar solo la API (sin contenedor de BD) contra Supabase:
+
+```bash
+docker compose -f docker-compose.supabase.yml up -d --build
+```
+
+Este compose (`docker-compose.supabase.yml`) construye el `ConnectionStrings__DefaultConnection` de Supabase desde las variables (con `SSL Mode=Require`) y usa `SUPABASE_JWT_SECRET` como `Jwt:Key`. La API aplica migraciones y seeders automáticamente al arrancar.
+
+Variables adicionales opcionales en el `.env` (para futuras integraciones con SDK de Supabase): `SUPABASE_PROJECT_URL` y `SUPABASE_ANON_KEY`.
+
+En la plataforma de despliegue (Railway, Render, Azure, etc.) define las mismas variables como **env vars** del servicio (no del `.env`): `ConnectionStrings__DefaultConnection` y `Jwt__Key`, o bien las `SUPABASE_*` si se usa este mismo compose.
 
 Consideraciones para producción:
-- La migraciones se aplican automáticamente al arrancar (`MigrateAsync`); se recomienda correr `dotnet ef database update` en el proceso de deploy para no abrir la app con migraciones pendientes.
+- Se recomienda correr `dotnet ef database update` en el proceso de deploy (o dejar `MigrateAsync`) para aplicar migraciones pendientes antes de abrir la app.
 - `ASPNETCORE_ENVIRONMENT` debe ser `Production` para no exponer `/scalar` ni el token de reset de contraseña.
 - RLS en Supabase: el aislamiento multi-clínica ya lo hace la API (claim `clinicId`); si además habilitas RLS en tablas, configura las policies con la misma regla.
 

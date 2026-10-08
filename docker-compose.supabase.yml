@@ -1,0 +1,24 @@
+# ============================================================================
+# Compose para correr SOLO la API contra Supabase (sin contenedor de base de datos).
+# Requiere tener en .env las variables SUPABASE_DB_* y SUPABASE_JWT_SECRET.
+#
+# Uso:
+#   docker compose -f docker-compose.supabase.yml up -d --build
+#
+# La API aplica migraciones y seeders al arrancar (MigrateAsync + seeders).
+# ============================================================================
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mimacare-api
+    restart: unless-stopped
+    ports:
+      - "${API_PORT:-5097}:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
+      # Cadena de conexión de Supabase (pooler: 6543, direct: 5432)
+      ConnectionStrings__DefaultConnection: Host=${SUPABASE_DB_HOST};Port=${SUPABASE_DB_PORT};Database=${SUPABASE_DB_NAME};Username=${SUPABASE_DB_USER};Password=${SUPABASE_DB_PASSWORD};SSL Mode=Require;Trust Server Certificate=true
+      # JWT Secret de Supabase como clave de firma del JWT de la API
+      Jwt__Key: ${SUPABASE_JWT_SECRET}
