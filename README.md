@@ -212,17 +212,39 @@ Días de semana (horarios/citas): `DayOfWeek` como `0 = Sunday … 6 = Saturday`
 
 ## Configuración
 
-`MimaCare.Presentation/appsettings.json`:
+La configuración se resuelve por capas (ASP.NET Core: `appsettings.json` → `appsettings.{Environment}.json` → variables de entorno, con separador `__`).
+
+**`appsettings.json` no contiene credenciales** (van vacías), para que nunca se filtren al repositorio:
 
 ```jsonc
 {
-  "ConnectionStrings": {
-    "DefaultConnection": "Host=localhost;Port=5432;Database=MimaCare;Username=postgres;Password=1234"
-  },
-  "Jwt": { "Key": "..." },
+  "ConnectionStrings": { "DefaultConnection": "" },
+  "Jwt": { "Key": "" },
   "AllowedHosts": "*"
 }
 ```
+
+| Entorno | Origen de `ConnectionStrings:DefaultConnection` y `Jwt:Key` |
+|---|---|
+| **Desarrollo local** (`dotnet run`) | `appsettings.Development.json` (PostgreSQL local `localhost:5432`) |
+| **Desarrollo con Docker** | `.env` local (nunca commiteado) → interpola el `docker-compose.yml` |
+| **Producción (Supabase)** | **Variables de entorno** de la plataforma de despliegue (no del repo) |
+
+### Producción: Supabase (PostgreSQL gestionado)
+
+La meta es usar **[Supabase](https://supabase.com)** como base de datos en producción; el de desarrollo/local se mantiene como está (PostgreSQL local o el contenedor de Docker). Como Supabase es PostgreSQL, la API funciona igual: solo cambia la cadena de conexión (y los parámetros de seguridad).
+
+En la plataforma de despliegue (Railway, Render, Azure, etc.) define:
+
+- `ConnectionStrings__DefaultConnection` — cadena de conexión de Supabase (conexión directa o pooler, puerto 6543 en modo pooler), por ejemplo:
+  `Host=aws-0-xx-xx.supabase.co;Port=5432;Database=postgres;Username=postgres;Password=<db-password>;SSL Mode=Require;Trust Server Certificate=true`
+- `Jwt__Key` — el **JWT Secret** del proyecto Supabase (Configuración → API → JWT Secret). Si en el futuro se autentican usuarios con Supabase Auth, se usará esa misma clave para validar los tokens.
+- (Opcional) `Supabase__Url` y `Supabase__AnonKey` para integrar el SDK de Supabase.
+
+Consideraciones para producción:
+- La migraciones se aplican automáticamente al arrancar (`MigrateAsync`); se recomienda correr `dotnet ef database update` en el proceso de deploy para no abrir la app con migraciones pendientes.
+- `ASPNETCORE_ENVIRONMENT` debe ser `Production` para no exponer `/scalar` ni el token de reset de contraseña.
+- RLS en Supabase: el aislamiento multi-clínica ya lo hace la API (claim `clinicId`); si además habilitas RLS en tablas, configura las policies con la misma regla.
 
 En `Program.cs`:
 - Identity con requisitos mínimos de contraseña.
