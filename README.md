@@ -230,37 +230,101 @@ La configuración se resuelve por capas (ASP.NET Core: `appsettings.json` → `a
 | **Desarrollo con Docker** | `.env` local (nunca commiteado) → interpola el `docker-compose.yml` |
 | **Producción (Supabase)** | **Variables de entorno** de la plataforma de despliegue (no del repo) |
 
-### Producción: Supabase (PostgreSQL gestionado)
+### Producción: Supabase (PostgreSQL gestionado) + Render
 
-La meta es usar **[Supabase](https://supabase.com)** como base de datos en producción; el de desarrollo/local se mantiene como está (PostgreSQL local o el contenedor de Docker). Como Supabase es PostgreSQL, la API funciona igual: solo cambia la cadena de conexión (y los parámetros de seguridad).
+La API usa **PostgreSQL local en desarrollo** y **[Supabase](https://supabase.com) en producción** (y en Render). Como Supabase es PostgreSQL, la API funciona igual: solo cambia la cadena de conexión.
 
-El entorno ya está preparado: solo hay que pegar las credenciales de Supabase en el bloque `SUPABASE_*` del `.env` (ver `.env.example`):
+#### ⚠️ Conexión directa vs pooler (importante)
+
+Supabase publica dos formas de conectarse:
+
+| Forma | Host | Puerto | IPv4 | Migraciones EF Core |
+|---|---|---|---|---|
+| Direct connection | `db.<ref>.supabase.co` | 5432 | ❌ **solo IPv6** | Sí |
+| Pooler – session mode | `aws-1-<region>.pooler.supabase.com` | 5432 | ✅ | Sí |
+| Pooler – transaction mode | `aws-1-<region>.pooler.supabase.com` | 6543 | ✅ | No recomendado |
+
+**Render no tiene salida IPv6**, así que la conexión directa `db.<ref>.supabase.co` **no funciona** desde Render (error de red inalcanzable). Hay que usar el **pooler en session mode (5432)**.
+
+En el pooler el usuario lleva el `project-ref`:
 
 ```
-SUPABASE_DB_HOST=aws-0-xx-xx.pooler.supabase.com   # o db.<ref>.supabase.co
-SUPABASE_DB_PORT=6543                              # pooler (recomendado) o 5432 (direct)
+SUPABASE_DB_HOST=aws-1-<region>.pooler.supabase.com      # NO commitear valores reales
+SUPABASE_DB_PORT=5432                  # session mode (soporta migraciones)
 SUPABASE_DB_NAME=postgres
-SUPABASE_DB_USER=postgres                          # en pooler transaccional: postgres.<project-ref>
+SUPABASE_DB_USER=postgres.<project-ref>   # postgres.<project-ref>
 SUPABASE_DB_PASSWORD=<db-password>
-SUPABASE_JWT_SECRET=<jwt-secret>
 ```
 
-Y arrancar solo la API (sin contenedor de BD) contra Supabase:
+El host exacto está en el dashboard: **Connect → Connection pooling → Session mode**.
+
+#### Resolución de la configuración en `Program.cs`
+
+`AppConfiguration.Apply(...)` normaliza el entorno antes de registrar los servicios, en este orden:
+
+1. `ConnectionStrings:DefaultConnection` (o `ConnectionStrings__DefaultConnection`).
+2. `DATABASE_URL` en formato URI (`postgresql://usuario:pass@host:puerto/db`) — lo define automáticamente Render si se le asocia una base de datos.
+3. Variables `SUPABASE_DB_*` (se construye la cadena con `SSL Mode=Require`; el `NpgsqlConnectionStringBuilder` escapa la contraseña, así que admite caracteres especiales).
+
+Para la firma de los JWT: `Jwt__Key` → `SUPABASE_JWT_SECRET` → clave de desarrollo (solo en Development). En producción es **obligatorio** definir `Jwt__Key`: la API **falla al arrancar con un mensaje claro** si falta o si tiene menos de 32 caracteres (HS256 exige 256 bits).
+
+### 🔐 Secretos y credenciales
+
+Regla: **las credenciales nunca están en archivos del repositorio** (`appsettings*.json` solo tienen valores locales/vacíos).
+
+| Entorno | Dónde viven los secretos | Cómo se leen |
+|---|---|---|
+| **Desarrollo local** (`dotnet run`) | `appsettings.Development.json` (PostgreSQL local) y, si necesitas Supabase, **user-secrets** | `dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Host=...;Password=..."` |
+| **Docker local** | `.env` (chmod 600, ignorado por git) | `docker compose --env-file .env ...` |
+| **Producción (Render)** | **Environment variables del servicio** (`sync: false` en `render.yaml`, nunca en el repo) | El contenedor las recibe en runtime |
+
+`dotnet user-secrets` guarda valores fuera del repo (`~/.microsoft/usersecrets/...`) y tiene prioridad sobre `appsettings.Development.json`, así que es la forma recomendada de probar Supabase sin tocar archivos versionados:
 
 ```bash
+cd MimaCare.Presentation
+dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Host=aws-1-<region>.pooler.supabase.com;Port=5432;Database=postgres;Username=postgres.<ref>;Password=<pass>;SSL Mode=Require"
+dotnet user-secrets set "Jwt:Key" "<clave-de-32+-caracteres>"
+```
+
+Otras protecciones activas:
+- `.gitignore` ignora `.env` y **cualquier variante** (`.env*`, `.env.production`…), `secrets.json` y `Scripts/`.
+- `.dockerignore` excluye `.env`, `.env.*` y `Scripts/`: los secretos no entran en la imagen.
+- El arranque registra el destino de la BD **sin contraseña** (`Entorno Production | Base de datos host:puerto/db (usuario X)`), útil para depurar despliegues.
+- `EnableSensitiveDataLogging` y los detalles de error de Npgsql están desactivados: las consultas y la contraseña no se registran en logs.
+- `Scripts/` (siembra local) **ya no se versiona**: contenía contraseñas de usuarios de prueba. Si esos usuarios existen todavía, cámbiales la contraseña.
+
+### Cuenta demo
+
+En la base de datos de Supabase queda creada la clínica demo con plan **Enterprise** (el `SubscriptionPlanSeeder` se lo asigna automáticamente por su email):
+
+| Email | Contraseña | Clínica | Plan |
+|---|---|---|---|
+| `mimacare@gmail.com` | `123456` | MimaCare | Enterprise |
+
+> ⚠️ Es una cuenta de demostración: cámbiale la contraseña (o bórrala) antes de usar el sistema con datos reales.
+
+### Despliegue en Render
+
+El repositorio incluye `render.yaml` (Blueprint). Opción recomendada:
+
+1. Render → **New +** → **Blueprint** → conecta `MimaCare_Api` (usa `render.yaml`).
+2. Cuando lo pida, pega `SUPABASE_DB_PASSWORD` (la contraseña de la base de datos de Supabase). `Jwt__Key` lo genera Render automáticamente.
+3. Deploy. El contenedor escucha en `$PORT` (o 8080) y expone `/health`, que Render usa como health check.
+
+Al primer arranque la API aplica **las migraciones y todos los seeders** contra Supabase (roles, especialidades, planes, sucursal por defecto). Por eso no hace falta correr nada a mano; si prefieres hacerlo antes desde tu máquina:
+
+```bash
+# Con el .env apuntando al pooler de Supabase
 docker compose -f docker-compose.supabase.yml up -d --build
 ```
 
-Este compose (`docker-compose.supabase.yml`) construye el `ConnectionStrings__DefaultConnection` de Supabase desde las variables (con `SSL Mode=Require`) y usa `SUPABASE_JWT_SECRET` como `Jwt:Key`. La API aplica migraciones y seeders automáticamente al arrancar.
-
-Variables adicionales opcionales en el `.env` (para futuras integraciones con SDK de Supabase): `SUPABASE_PROJECT_URL` y `SUPABASE_ANON_KEY`.
-
-En la plataforma de despliegue (Railway, Render, Azure, etc.) define las mismas variables como **env vars** del servicio (no del `.env`): `ConnectionStrings__DefaultConnection` y `Jwt__Key`, o bien las `SUPABASE_*` si se usa este mismo compose.
+Alternativa en el dashboard de Render (sin Blueprint): crear un **Web Service** con runtime **Docker** (`Dockerfile` en la raíz) y definir las env vars `ASPNETCORE_ENVIRONMENT=Production`, `SUPABASE_DB_*`, `SUPABASE_DB_PASSWORD` y `Jwt__Key`.
 
 Consideraciones para producción:
-- Se recomienda correr `dotnet ef database update` en el proceso de deploy (o dejar `MigrateAsync`) para aplicar migraciones pendientes antes de abrir la app.
 - `ASPNETCORE_ENVIRONMENT` debe ser `Production` para no exponer `/scalar` ni el token de reset de contraseña.
+- CORS (opcional): define `Cors__AllowedOrigins=https://tu-frontend.com,http://localhost:5173` solo si el frontend vive en otro dominio.
 - RLS en Supabase: el aislamiento multi-clínica ya lo hace la API (claim `clinicId`); si además habilitas RLS en tablas, configura las policies con la misma regla.
+- El pooler de Supabase tiene límite de conexiones (session mode): no hace falta tunear nada, EF Core abre las que necesita.
 
 En `Program.cs`:
 - Identity con requisitos mínimos de contraseña.
@@ -282,14 +346,31 @@ dotnet run --project MimaCare.Presentation
 ```
 
 Al arrancar, la aplicación:
-1. Aplica las migraciones pendientes (`Database.MigrateAsync()`). Si la BD ya tiene tablas creadas por otro medio, hay un fallback que marca la migración inicial como aplicada (evita el error `42P07`).
+1. Aplica las migraciones pendientes (`Database.MigrateAsync()`), **con reintentos** ante fallos transitorios de red (5 intentos, 5 s entre ellos) — útil con el pooler de Supabase. Si la BD ya tiene tablas creadas por otro medio (por ejemplo al aplicar `MimaCare.infrastructure/migration_script.sql` a mano), marca todas las migraciones definidas como aplicadas y continúa (evita el error `42P07`).
 2. Siembra los roles `Super`, `Clinic` y `Doctor` (`RoleSeeder`).
 3. Siembra el catálogo de **10 especialidades odontológicas** (`SpecialtySeeder`).
 4. `SubscriptionPlanSeeder`: garantiza los 3 planes por defecto, asigna un plan a toda clínica sin plan (y **Enterprise** a la clínica demo `mimacare@gmail.com`), crea una **sucursal por defecto** para clínicas sin sucursales y vincula cada doctor a la sucursal de su clínica. Idempotente.
 
 La API queda en **`http://localhost:5097`** y la documentación en **`http://localhost:5097/scalar`** (Development).
 
+Endpoints de infraestructura:
+- `GET /health` — health check (usado por Render): `{ "status": "ok", "database": "up" }`, o `503` si la BD no responde.
+
 > No hay redirección HTTPS por diseño (ver sección de seguridad).
+
+### Migraciones (⚠️ regeneradas)
+
+`InitialCreate` se regeneró el 2026-10-17: la versión anterior se había generado cuando el proyecto usaba SQLite (`TYPE TEXT` / `INTEGER`) mientras el modelo ya era PostgreSQL (`uuid`, `text`, `boolean`), lo que impedía crear las FK en una base nueva (`42804: foreign key constraint cannot be implemented`). Ahora hay una sola migración `20261017193334_InitialCreate` coherente con el modelo.
+
+Consecuencia: **una base local creada con las migraciones anteriores queda desincronizada** (sus IDs son `text`). Al ser datos de desarrollo, lo más simple es recrearla:
+
+```sql
+-- en la BD local de desarrollo
+DROP SCHEMA public CASCADE;
+CREATE SCHEMA public;
+```
+
+y volver a arrancar la API (vuelve a migrar y sembrar todo). Si prefieres conservar los datos, aplica el cambio de tipos a mano o expórtalos/impórtalos con `Scripts/`.
 
 ---
 

@@ -18,11 +18,14 @@ RUN dotnet publish "MimaCare.Presentation.csproj" -c Release -o /app/publish /p:
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app
 
-# Escucha sin TLS dentro del contenedor (el reverse proxy/TLS es responsabilidad del host)
-ENV ASPNETCORE_URLS=http://+:8080
+# Escucha sin TLS dentro del contenedor (el reverse proxy/TLS es responsabilidad del host).
+# Render (y otras plataformas PaaS) inyectan la variable PORT: se respeta si existe,
+# si no se usa 8080.
+ENV ASPNETCORE_ENVIRONMENT=Production
 
 COPY --from=build /app/publish .
 
 EXPOSE 8080
 
-ENTRYPOINT ["dotnet", "MimaCare.Presentation.dll"]
+ENTRYPOINT ["/bin/sh", "-c"]
+CMD ["exec dotnet MimaCare.Presentation.dll --urls \"http://+:${PORT:-8080}\""]

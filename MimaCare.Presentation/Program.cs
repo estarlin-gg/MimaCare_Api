@@ -23,18 +23,22 @@ using Npgsql;
 using MimaCare.Presentation.Middlewares;
 using MimaCare.Domain.Interfaces;
 using MimaCare.Infrastructure.Persistence;
+using MimaCare.Presentation.Configuration;
 
 var builder = WebApplication.CreateBuilder(args);
+
+
+// CONFIGURATION (local PostgreSQL en Development, Supabase en Production)
+
+// Resuelve la cadena de conexión (ConnectionStrings:DefaultConnection, DATABASE_URL
+// o SUPABASE_DB_*) y la clave Jwt:Key (Jwt__Key o SUPABASE_JWT_SECRET).
+AppConfiguration.Apply(builder.Configuration, builder.Environment);
 
 
 // DATABASE
 
 builder.Services.AddDbContext<MimaCareContext>(options =>
 {
-    //options.UseSqlite(
-    //    builder.Configuration.GetConnectionString(
-    //        "DefaultConnection"));
-
     options.UseNpgsql(
         builder.Configuration.GetConnectionString(
             "DefaultConnection"));
@@ -216,6 +220,26 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddControllers();
 
 
+// CORS (opcional). Se habilita solo si existe Cors:AllowedOrigins
+// (lista separada por comas), por ejemplo:
+//   Cors__AllowedOrigins=https://mi-frontend.vercel.app,http://localhost:3000
+
+var allowedOrigins = builder.Configuration["Cors:AllowedOrigins"]?
+    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+if (allowedOrigins is { Length: > 0 })
+{
+    builder.Services.AddCors(options =>
+    {
+        options.AddDefaultPolicy(policy => policy
+            .WithOrigins(allowedOrigins)
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials());
+    });
+}
+
+
 // OPEN API
 
 builder.Services.AddOpenApi();
@@ -226,23 +250,22 @@ var app = builder.Build();
 
 // MIGRATE DATABASE
 
+var startupLogger = app.Services
+    .GetRequiredService<ILoggerFactory>()
+    .CreateLogger("MimaCare.Startup");
+
+startupLogger.LogInformation(
+    "Entorno {Environment} | Base de datos {Database}",
+    app.Environment.EnvironmentName,
+    AppConfiguration.DescribeTarget(
+        app.Configuration.GetConnectionString("DefaultConnection")!));
+
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider
         .GetRequiredService<MimaCareContext>();
 
-    try
-    {
-        await context.Database.MigrateAsync();
-    }
-    catch (PostgresException ex) when (ex.SqlState == "42P07")
-    {
-        // Tables already exist — mark InitialCreate as applied and retry
-        await context.Database.ExecuteSqlRawAsync(
-            "INSERT INTO \"__EFMigrationsHistory\" (\"MigrationId\", \"ProductVersion\") " +
-            "VALUES ('20260523164337_InitialCreate', '10.0.7')");
-        await context.Database.MigrateAsync();
-    }
+    await DatabaseBootstrapper.ApplyMigrationsAsync(context, startupLogger);
 }
 
 
@@ -255,7 +278,10 @@ using (var scope = app.Services.CreateScope())
             .GetRequiredService<
                 RoleManager<IdentityRole<Guid>>>();
 
-    await RoleSeeder.SeedAsync(roleManager);
+    await DatabaseBootstrapper.RunAsync(
+        "RoleSeeder",
+        () => RoleSeeder.SeedAsync(roleManager),
+        startupLogger);
 }
 
 using (var scope = app.Services.CreateScope())
@@ -263,7 +289,10 @@ using (var scope = app.Services.CreateScope())
     var context = scope.ServiceProvider
         .GetRequiredService<MimaCareContext>();
 
-    await SpecialtySeeder.SeedAsync(context);
+    await DatabaseBootstrapper.RunAsync(
+        "SpecialtySeeder",
+        () => SpecialtySeeder.SeedAsync(context),
+        startupLogger);
 }
 
 using (var scope = app.Services.CreateScope())
@@ -271,7 +300,10 @@ using (var scope = app.Services.CreateScope())
     var context = scope.ServiceProvider
         .GetRequiredService<MimaCareContext>();
 
-    await SubscriptionPlanSeeder.SeedAsync(context);
+    await DatabaseBootstrapper.RunAsync(
+        "SubscriptionPlanSeeder",
+        () => SubscriptionPlanSeeder.SeedAsync(context),
+        startupLogger);
 }
 
 
@@ -292,12 +324,26 @@ if (app.Environment.IsDevelopment())
 
 app.UseExceptionMiddleware();
 
+if (allowedOrigins is { Length: > 0 })
+{
+    app.UseCors();
+}
+
 app.UseAuthentication();
 
 app.UseAuthorization();
 
 
 // ENDPOINTS
+
+app.MapGet("/health", async (MimaCareContext context) =>
+{
+    var canConnect = await context.Database.CanConnectAsync();
+
+    return canConnect
+        ? Results.Ok(new { status = "ok", database = "up" })
+        : Results.Json(new { status = "degraded", database = "down" }, statusCode: 503);
+});
 
 app.MapControllers();
 

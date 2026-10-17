@@ -5,6 +5,9 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <NoWarn>NU1903</NoWarn>
+    <!-- Permite guardar secretos de desarrollo FUERA del repositorio:
+         dotnet user-secrets set "SUPABASE_DB_PASSWORD" "..." -->
+    <UserSecretsId>mimacare-api-secrets</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
