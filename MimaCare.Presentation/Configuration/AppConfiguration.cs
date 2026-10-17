@@ -65,27 +65,33 @@ public static class AppConfiguration
             return FromUri(databaseUrl.Trim());
         }
 
-        var host = configuration["SUPABASE_DB_HOST"];
+        // Host/puerto/base/usuario NO son secretos: tienen valores por defecto en
+        // appsettings.json (sección "Supabase") y se pueden sobrescribir con las
+        // variables SUPABASE_DB_* o Supabase__*.
+        var host = configuration["SUPABASE_DB_HOST"]
+            ?? configuration["Supabase:Host"];
 
         if (!string.IsNullOrWhiteSpace(host))
         {
-            var password = configuration["SUPABASE_DB_PASSWORD"];
+            var password = configuration["SUPABASE_DB_PASSWORD"]
+                ?? configuration["Supabase:Password"];
 
             if (string.IsNullOrWhiteSpace(password))
             {
                 // Mensaje explícito: sin contraseña la conexión fallaría con un
                 // críptico "28P01 password authentication failed".
                 throw new InvalidOperationException(
-                    "Falta SUPABASE_DB_PASSWORD: define esa variable de entorno " +
-                    "(o usa ConnectionStrings__DefaultConnection / DATABASE_URL). " +
-                    $"Entorno actual: {environment.EnvironmentName}.");
+                    "Falta la contraseña de la base de datos. En el servicio de Render añade " +
+                    "la variable de entorno SUPABASE_DB_PASSWORD (o ConnectionStrings__DefaultConnection " +
+                    "con la cadena completa). " + DescribeDetectedKeys(configuration) +
+                    $" Entorno actual: {environment.EnvironmentName}.");
             }
 
             return BuildFromParts(
                 host!,
-                configuration["SUPABASE_DB_PORT"],
-                configuration["SUPABASE_DB_NAME"],
-                configuration["SUPABASE_DB_USER"],
+                configuration["SUPABASE_DB_PORT"] ?? configuration["Supabase:Port"],
+                configuration["SUPABASE_DB_NAME"] ?? configuration["Supabase:Database"],
+                configuration["SUPABASE_DB_USER"] ?? configuration["Supabase:User"],
                 password);
         }
 
@@ -93,7 +99,38 @@ public static class AppConfiguration
             "No hay base de datos configurada. Define ConnectionStrings__DefaultConnection, " +
             "DATABASE_URL o las variables SUPABASE_DB_* (SUPABASE_DB_HOST, SUPABASE_DB_PORT, " +
             "SUPABASE_DB_NAME, SUPABASE_DB_USER, SUPABASE_DB_PASSWORD). " +
-            $"Entorno actual: {environment.EnvironmentName}.");
+            DescribeDetectedKeys(configuration) +
+            $" Entorno actual: {environment.EnvironmentName}.");
+    }
+
+    /// <summary>
+    /// Lista (solo los nombres, nunca los valores) las variables de configuración
+    /// relacionadas con la BD y el JWT que el proceso ha recibido. Es la forma más
+    /// rápida de ver en los logs de Render si faltó definir algo.
+    /// </summary>
+    private static string DescribeDetectedKeys(IConfiguration configuration)
+    {
+        var prefixes = new[]
+        {
+            "SUPABASE",
+            "DATABASE",
+            "POSTGRES",
+            "CONNECTIONSTRINGS",
+            "JWT",
+            "Supabase:"
+        };
+
+        var keys = configuration.AsEnumerable()
+            .Select(pair => pair.Key)
+            .Where(key => prefixes.Any(prefix =>
+                key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(key => key, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        return keys.Count == 0
+            ? "Claves detectadas: ninguna (no defines ninguna variable de BD en el servicio)."
+            : "Claves detectadas: " + string.Join(", ", keys) + ".";
     }
 
     private static string ResolveJwtKey(

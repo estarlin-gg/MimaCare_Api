@@ -33,6 +33,10 @@ services:
       # NO uses db.<ref>.supabase.co: la conexión directa de Supabase es IPv6
       # y Render no tiene salida IPv6. El pooler (Supavisor) sí es IPv4.
       # Puerto 5432 = session mode (soporta las migraciones de EF Core).
+      #
+      # Estas 4 variables ya tienen valores por defecto en appsettings.json
+      # (sección "Supabase"): se dejan aquí solo para que se vean en el dashboard
+      # y poder cambiarlas sin tocar código.
       - key: SUPABASE_DB_HOST
         value: aws-1-us-west-2.pooler.supabase.com
       - key: SUPABASE_DB_PORT
@@ -41,7 +45,9 @@ services:
         value: postgres
       - key: SUPABASE_DB_USER
         value: postgres.asijdtstsbhetahbhgaq
-      # Se solicita al crear el Blueprint; nunca se guarda en el repositorio.
+
+      # ⚠️ ÚNICO secreto obligatorio: se solicita al crear el Blueprint y nunca
+      # se guarda en el repositorio. Sin esta variable la API no arranca.
       - key: SUPABASE_DB_PASSWORD
         sync: false
 

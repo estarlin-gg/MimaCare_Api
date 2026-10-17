@@ -276,7 +276,9 @@ Regla: **las credenciales nunca están en archivos del repositorio** (`appsettin
 |---|---|---|
 | **Desarrollo local** (`dotnet run`) | `appsettings.Development.json` (PostgreSQL local) y, si necesitas Supabase, **user-secrets** | `dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Host=...;Password=..."` |
 | **Docker local** | `.env` (chmod 600, ignorado por git) | `docker compose --env-file .env ...` |
-| **Producción (Render)** | **Environment variables del servicio** (`sync: false` en `render.yaml`, nunca en el repo) | El contenedor las recibe en runtime |
+| **Producción (Render)** | **Environment variables del servicio** (nunca en el repo) | El contenedor las recibe en runtime |
+
+**En Render solo hace falta UN secreto: `SUPABASE_DB_PASSWORD`.** Host, puerto, base y usuario **no son secretos** y tienen valores por defecto en `appsettings.json` (sección `Supabase`), así que el despliegue no depende de acordarse de 4 variables más. Todo es sobrescribible con las variables `SUPABASE_DB_*` o `Supabase__*` si algún día cambias de proyecto en Supabase.
 
 `dotnet user-secrets` guarda valores fuera del repo (`~/.microsoft/usersecrets/...`) y tiene prioridad sobre `appsettings.Development.json`, así que es la forma recomendada de probar Supabase sin tocar archivos versionados:
 
@@ -308,8 +310,20 @@ En la base de datos de Supabase queda creada la clínica demo con plan **Enterpr
 El repositorio incluye `render.yaml` (Blueprint). Opción recomendada:
 
 1. Render → **New +** → **Blueprint** → conecta `MimaCare_Api` (usa `render.yaml`).
-2. Cuando lo pida, pega `SUPABASE_DB_PASSWORD` (la contraseña de la base de datos de Supabase). `Jwt__Key` lo genera Render automáticamente.
+2. Cuando lo pida, pega **`SUPABASE_DB_PASSWORD`** (la contraseña de la base de datos de Supabase). Es la **única** variable obligatoria: el host/puerto/base/usuario vienen de `appsettings.json` y `Jwt__Key` la genera Render.
 3. Deploy. El contenedor escucha en `$PORT` (o 8080) y expone `/health`, que Render usa como health check.
+
+Si creas el servicio **a mano** (Web Service → Language **Docker** → Dockerfile `./Dockerfile`), define en *Environment*:
+
+| Variable | Valor |
+|---|---|
+| `ASPNETCORE_ENVIRONMENT` | `Production` |
+| `SUPABASE_DB_PASSWORD` | *(contraseña de Supabase — secreto)* |
+| `Jwt__Key` | Cadena aleatoria de 32+ caracteres (o déjala que la genere Render) |
+
+Y en *Advanced → Health Check Path*: `/health`. Opcionalmente puedes sobreescribir `SUPABASE_DB_HOST`, `SUPABASE_DB_PORT`, `SUPABASE_DB_NAME`, `SUPABASE_DB_USER` y `Cors__AllowedOrigins`.
+
+> **No definas `PORT`**: Render la inyecta y el contenedor la respeta.
 
 Al primer arranque la API aplica **las migraciones y todos los seeders** contra Supabase (roles, especialidades, planes, sucursal por defecto). Por eso no hace falta correr nada a mano; si prefieres hacerlo antes desde tu máquina:
 
